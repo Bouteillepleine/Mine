@@ -146,8 +146,12 @@ jobs:
 
       - name: Install dependencies
         run: |
-          apt update && apt upgrade -y
-          apt install -y python3 git curl libelf-dev lld ccache clang rustc
+          sudo apt update && sudo apt upgrade -y
+          sudo apt install -y python3 git curl libelf-dev lld ccache clang
+          # Install specific rustc version to match build requirements
+          curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain 1.73.0
+          source $HOME/.cargo/env
+          rustc --version
 
       - name: Restore ccache
         uses: actions/cache@v4
