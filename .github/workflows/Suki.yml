@@ -374,9 +374,10 @@ jobs:
       - name: "💫Optimize Network Performance"
         if: ${{ inputs.kernel_version == '6.6' || inputs.kernel_version == '6.1' }}
         run: |
-          cd "$CONFIG/kernel_platform" || exit 1
+          # Navigate to the correct directory
+          cd kernel_workspace/kernel_platform || { echo "Failed to navigate to kernel_platform"; exit 1; }
           mkdir -p common/net/ipv4  # Ensure the directory exists
-          cd common/net/ipv4
+          cd common/net/ipv4 || { echo "Failed to navigate to common/net/ipv4"; exit 1; }
           
           # Configure ECN
           sed -i 's/net->ipv4.sysctl_tcp_ecn = 2;/net->ipv4.sysctl_tcp_ecn = 2;/' tcp_ipv4.c || true
