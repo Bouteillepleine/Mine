@@ -446,13 +446,13 @@ jobs:
         run: |
           cd kernel_workspace/kernel_platform
           sed -i 's/${scm_version}//' ./common/scripts/setlocalversion
-          sed -i 's/-4k/${{ inputs.KERNEL_NAME }}/g' ./common/arch/arm64/configs/gki_defconfig
+          sudo sed -i 's/-4k/${{ inputs.KERNEL_NAME }}/g' ./common/arch/arm64/configs/gki_defconfig
 
       - name: Set kernel build timestamp
         run: |
           export SOURCE_DATE_EPOCH=$(date -d "${{ inputs.KERNEL_TIME }}" +%s)
           echo "SOURCE_DATE_EPOCH=$SOURCE_DATE_EPOCH" >> $GITHUB_ENV
-          echo "BUILDDATE=$(date -d "${{ inputs.KERNEL_TIME }}" +'%Y%m%d')" >> $GITHUB_ENV
+          echo "BUILDDATE=$(date +'%Y%m%d')" >> $GITHUB_ENV
 
       - name: Build Kernel
         run: |
@@ -461,18 +461,13 @@ jobs:
             export KBUILD_BUILD_TIMESTAMP="${{ inputs.KERNEL_TIME }}"
             export PATH="$GITHUB_WORKSPACE/kernel_workspace/kernel_platform/prebuilts/clang/host/linux-x86/clang-r510928/bin:$PATH"
             export PATH="/usr/lib/ccache:$PATH"
+            sudo apt install libelf-dev
             cd kernel_workspace/kernel_platform/common
-            make -j$(nproc --all) LLVM=1 ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- CC=clang RUSTC=../../prebuilts/rust/linux-x86/1.73.0b/bin/rustc PAHOLE=../../prebuilts/kernel-build-tools/linux-x86/bin/pahole LD=ld.lld HOSTLD=ld.lld O=out KCFLAGS+=-Wno-error gki_defconfig all || {
-              echo "::error::Kernel build failed for model ${{ inputs.MODEL }}"
-              exit 1
-            }
+            make -j$(nproc --all) LLVM=1 ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- CC=clang RUSTC=../../prebuilts/rust/linux-x86/1.73.0b/bin/rustc PAHOLE=../../prebuilts/kernel-build-tools/linux-x86/bin/pahole LD=ld.lld  HOSTLD=ld.lld O=out KCFLAGS+=-Wno-error gki_defconfig all
           else
             export SOURCE_DATE_EPOCH=${SOURCE_DATE_EPOCH}
             cd kernel_workspace/kernel_platform
-            tools/bazel run --config=fast --config=stamp --lto=thin //common:kernel_aarch64_dist -- --dist_dir=dist || {
-              echo "::error::Bazel build failed for oneplus_13r"
-              exit 1
-            }
+            tools/bazel run --config=fast --config=stamp --lto=thin //common:kernel_aarch64_dist -- --dist_dir=dist
           fi
 
       - name: Apply Linux Patch
@@ -481,104 +476,67 @@ jobs:
           if [[ "$MODEL" != "oneplus_13r" ]]; then
             cd kernel_workspace/kernel_platform/common/out/arch/arm64/boot
           else
-            cd kernel_workspace/kernel_platform/dist
+            cd kernel_workspace/kernel_platform/dist/
           fi
-          curl -LO https://github.com/ShirkNeko/SukiSU_KernelPatch_patch/releases/download/0.11-beta/patch_linux || {
-            echo "::error::Failed to download patch_linux"
-            exit 1
-          }
+          curl -LO https://github.com/ShirkNeko/SukiSU_KernelPatch_patch/releases/download/0.11-beta/patch_linux
           chmod +x patch_linux
-          ./patch_linux || {
-            echo "::error::Failed to apply patch_linux"
-            exit 1
-          }
+          ./patch_linux
           rm -f Image
           mv oImage Image
-
+         
       - name: Make AnyKernel3
         env:
           IMG_FILE: "${{ inputs.MODEL }}_Image_SukiSU_Ultra_${{ env.KSUVER }}_${{ inputs.ANDROID_VERSION }}_${{ inputs.KERNEL_VERSION }}-${{ env.BUILDDATE }}"
           ANYKERNEL3_FILE: "${{ inputs.MODEL }}_SukiSU_Ultra_${{ env.KSUVER }}_${{ inputs.ANDROID_VERSION }}_${{ inputs.KERNEL_VERSION }}-${{ env.BUILDDATE }}"
         run: |
-          git clone https://github.com/Kernel-SU/AnyKernel3.git --depth=1 || {
-            echo "::error::Failed to clone AnyKernel3"
-            exit 1
-          }
-          rm -rf AnyKernel3/.git AnyKernel3/push.sh
+          git clone https://github.com/Kernel-SU/AnyKernel3.git --depth=1    
+          rm -rf ./AnyKernel3/.git
+          rm -rf ./AnyKernel3/push.sh
           MODEL="${{ inputs.MODEL }}"
           if [[ "$MODEL" != "oneplus_13r" ]]; then
-            IMAGE_PATH="kernel_workspace/kernel_platform/common/out/arch/arm64/boot/Image"
+            cp kernel_workspace/kernel_platform/common/out/arch/arm64/boot/Image ./AnyKernel3/
           else
-            IMAGE_PATH="kernel_workspace/kernel_platform/dist/Image"
-          fi
-          if [ -f "$IMAGE_PATH" ]; then
-            cp "$IMAGE_PATH" AnyKernel3/ || {
-              echo "::error::Failed to copy Image for model ${{ inputs.MODEL }}"
-              exit 1
-            }
-          else
-            echo "::error::Image file not found at $IMAGE_PATH"
-            exit 1
+            cp kernel_workspace/kernel_platform/dist/Image ./AnyKernel3/
           fi
 
-      - name: Upload Artifacts
+      - name: Upload AnyKernel3
         env:
-          IMG_FILE: "${{ inputs.MODEL }}_Image_SukiSU_Ultra_${{ env.KSUVER }}_${{ inputs.ANDROID_VERSION }}_${{ inputs.KERNEL_VERSION }}-${{ env.BUILDDATE }}"
           ANYKERNEL3_FILE: "${{ inputs.MODEL }}_SukiSU_Ultra_${{ env.KSUVER }}_${{ inputs.ANDROID_VERSION }}_${{ inputs.KERNEL_VERSION }}-${{ env.BUILDDATE }}"
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ env.ANYKERNEL3_FILE }}
-          path: |
-            AnyKernel3/*
-            ${{ inputs.MODEL != 'oneplus_13r' && 'kernel_workspace/kernel_platform/common/out/arch/arm64/boot/Image' || 'kernel_workspace/kernel_platform/dist/Image' }}
+         name: ${{ env.ANYKERNEL3_FILE }}
+         path: ./AnyKernel3/*
+        
+      - name: Upload Image (13R)
+        if: ${{ inputs.MODEL == 'oneplus_13r' }}
+        env:
+          IMG_FILE: "${{ inputs.MODEL }}_Image_SukiSU_Ultra_${{ env.KSUVER }}_${{ inputs.ANDROID_VERSION }}_${{ inputs.KERNEL_VERSION }}-${{ env.BUILDDATE }}"
+        uses: actions/upload-artifact@v4
+        with:
+         name: ${{ env.IMG_FILE }}
+         path: kernel_workspace/kernel_platform/dist/Image
 
-      - name: Zip Artifacts
+      - name: Upload Image
+        env:
+          IMG_FILE: "${{ inputs.MODEL }}_Image_SukiSU_Ultra_${{ env.KSUVER }}_${{ inputs.ANDROID_VERSION }}_${{ inputs.KERNEL_VERSION }}-${{ env.BUILDDATE }}"
+        uses: actions/upload-artifact@v4
+        with:
+         name: ${{ env.IMG_FILE }}
+         path: kernel_workspace/kernel_platform/common/out/arch/arm64/boot/Image
+         
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: download
+
+      - name: Zip AnyKernel3
         env:
           IMG_FILE: "${{ inputs.MODEL }}_Image_SukiSU_Ultra_${{ env.KSUVER }}_${{ inputs.ANDROID_VERSION }}_${{ inputs.KERNEL_VERSION }}-${{ env.BUILDDATE }}"
           ANYKERNEL3_FILE: "${{ inputs.MODEL }}_SukiSU_Ultra_${{ env.KSUVER }}_${{ inputs.ANDROID_VERSION }}_${{ inputs.KERNEL_VERSION }}-${{ env.BUILDDATE }}"
         run: |
-          mkdir -p artifacts
-          MODEL="${{ inputs.MODEL }}"
-          if [[ "$MODEL" != "oneplus_13r" ]]; then
-            IMAGE_PATH="kernel_workspace/kernel_platform/common/out/arch/arm64/boot/Image"
-          else
-            IMAGE_PATH="kernel_workspace/kernel_platform/dist/Image"
-          fi
-          if [ -f "$IMAGE_PATH" ]; then
-            cp "$IMAGE_PATH" artifacts/${{ env.IMG_FILE }} || {
-              echo "::error::Failed to copy Image to artifacts"
-              exit 1
-            }
-            cd artifacts
-            zip -r ${{ env.IMG_FILE }}.zip ${{ env.IMG_FILE }} || {
-              echo "::error::Failed to zip Image artifact"
-              exit 1
-            }
-            cd ..
-          else
-            echo "::error::Image file not found at $IMAGE_PATH"
-            exit 1
-          fi
-          if [ -d "AnyKernel3" ]; then
-            cd AnyKernel3
-            zip -r ../artifacts/${{ env.ANYKERNEL3_FILE }}.zip . || {
-              echo "::error::Failed to zip AnyKernel3 artifact"
-              exit 1
-            }
-            cd ..
-          else
-            echo "::error::AnyKernel3 directory not found"
-            exit 1
-          fi
-
-      - name: Upload Zipped Artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: Zipped-Artifacts
-          path: |
-            artifacts/${{ env.IMG_FILE }}.zip
-            artifacts/${{ env.ANYKERNEL3_FILE }}.zip
-
+           cd download
+           cd ${{ env.IMG_FILE }} ; zip -r ../${{ env.IMG_FILE }}.zip . * ; cd ..
+           cd ${{ env.ANYKERNEL3_FILE }} ; zip -r ../${{ env.ANYKERNEL3_FILE }}.zip . * ; cd ..
       - name: Cleanup
         if: always()
         run: |
