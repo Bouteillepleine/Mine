@@ -268,14 +268,6 @@ jobs:
           CONFIG_DYNAMIC_DEBUG=n          
           CONFIG_DEBUG_INFO=n
 
-          # Others stuffs
-          CONFIG_ADRENO_IDLER=y
-          CONFIG_ADRENO_BOOST=y
-          CONFIG_SIMPLE_GPU_ALGORITHM=n          
-          CONFIG_ANDROID_LOW_MEMORY_KILLER=y 
-          CONFIG_DRM_MSM=y 
-          CONFIG_DRM_ADRENO=y
-
           EOF
 
           # Blacklist
