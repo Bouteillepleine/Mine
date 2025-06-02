@@ -1,4 +1,76 @@
 name: OnePlus 13 / Ace 5 Pro / Ace 5 SukiSU Ultra + SUSFS
+on:
+  workflow_dispatch:
+    inputs:
+      CPU:
+        type: choice
+        description: "SM"
+        required: true
+        default: 'sm8750'
+        options: 
+         - sm8750
+         - sm8650
+      FEIL:
+        type: choice
+        description: "Model"
+        required: true
+        default: 'oneplus_13r'
+        options: 
+         - oneplus_13
+         - oneplus_13_v
+         - oneplus_13t
+         - oneplus_13r
+         - oneplus_ace5_pro
+         - oneplus_ace5_pro_v
+         - oneplus_ace5
+      CPUD:
+        type: choice
+        description: "pineaple / Sun"
+        required: true
+        default: 'pineapple'
+        options: 
+         - sun
+         - pineapple
+      ANDROID_VERSION:
+        type: choice
+        description: "Android"
+        required: true
+        default: 'android14'
+        options: 
+         - android15
+         - android14
+      KERNEL_VERSION:
+        type: choice
+        description: "6.1 / 6.6 kernel"
+        required: true
+        default: '6.1'
+        options: 
+         - '6.6'
+         - '6.1'
+      KERNEL_NAME:
+        description: "Tên kernel"
+        required: true
+        default: '-android15-8-o-dda998c94f5c0-4K'
+      KERNEL_TIME:
+       description: "build kernel"
+       required: true
+       default: 'Tue Dec 17 23:36:49 UTC 2024'
+      enable_feature_x:
+       description: "KPM"
+       required: false
+       default: true
+       type: boolean
+      enable_feature_y:
+       description: "LZ4KD"
+       required: false
+       default: false
+       type: boolean
+      enable_feature_z:
+       description: "Fengchi"
+       required: false
+       default: true
+       type: boolean
+
 jobs:
   OnePlus-Kernel-Build:
     runs-on: ubuntu-latest
@@ -13,31 +85,41 @@ jobs:
         run: |
          case "${{ github.event.inputs.FEIL }}" in
            oneplus_13)
-            MODEL_NAME="OnePlus 13"
+            MODEL_NAME="Oneplus 13"
             ;;
            oneplus_13_v)
-            MODEL_NAME="OnePlus 13 (Android 15)"
+            MODEL_NAME="Oneplus 13 (Android 15)"
             ;;
-           oneplus_13t)
-            MODEL_NAME="OnePlus 13T"
+          oneplus_13t)
+             MODEL_NAME="Oneplus 13T"
             ;;
-           oneplus_13r)
-            MODEL_NAME="OnePlus 13R"
+            oneplus_13r)
+             MODEL_NAME="Oneplus 13R"             
             ;;
            oneplus_ace5)
-            MODEL_NAME="OnePlus Ace 5"
-            ;;
+             MODEL_NAME="Oneplus Ace 5"
+             ;;
            oneplus_ace5_pro)
-            MODEL_NAME="OnePlus Ace 5 Pro"
+            MODEL_NAME="Oneplus Ace 5 Pro"
             ;;
            oneplus_ace5_pro_v)
-            MODEL_NAME="OnePlus Ace 5 Pro (Android 15)"
+            MODEL_NAME="Oneplus Ace 5 Pro (Android 15)"
             ;;
            *)
             MODEL_NAME="Unknown Model"
             ;;
          esac
          echo "FEIL_NAME=$MODEL_NAME" >> "$GITHUB_ENV"
+          
+      - name: Maximize build space
+        uses: easimon/maximize-build-space@master
+        with:
+          root-reserve-mb: 8192
+          temp-reserve-mb: 2048
+          remove-dotnet: 'true'
+          remove-android: 'true'
+          remove-haskell: 'true'
+          remove-codeql: 'true'
           
       - name: Maximize build space
         uses: easimon/maximize-build-space@master
@@ -222,6 +304,101 @@ jobs:
           echo "CONFIG_KSU_SUSFS_HIDE_KSU_SUSFS_SYMBOLS=y" >> ./common/arch/arm64/configs/gki_defconfig
           echo "CONFIG_KSU_SUSFS_SPOOF_CMDLINE_OR_BOOTCONFIG=y" >> ./common/arch/arm64/configs/gki_defconfig
           echo "CONFIG_KSU_SUSFS_OPEN_REDIRECT=y" >> ./common/arch/arm64/configs/gki_defconfig
+
+          echo "CONFIG_TMPFS_XATTR=y" >> ./common/arch/arm64/configs/gki_defconfig
+          echo "CONFIG_TMPFS_POSIX_ACL=y" >> ./common/arch/arm64/configs/gki_defconfig
+          
+          # BBR and Network
+          echo "CONFIG_TCP_CONG_ADVANCED=y" >> ./common/arch/arm64/configs/gki_defconfig
+          echo "CONFIG_TCP_CONG_BBR=y" >> ./common/arch/arm64/configs/gki_defconfig
+          echo "CONFIG_DEFAULT_TCP_CONG="bbr"" >> ./common/arch/arm64/configs/gki_defconfig
+          echo "CONFIG_TCP_CONG_CDG=y" >> ./common/arch/arm64/configs/gki_defconfig
+          echo "CONFIG_DEFAULT_BBR=y" >> ./common/arch/arm64/configs/gki_defconfig
+          echo "CONFIG_NET_SCH_DEFAULT=y" >> ./common/arch/arm64/configs/gki_defconfig
+          echo "CONFIG_DEFAULT_FQ=y" >> ./common/arch/arm64/configs/gki_defconfig
+          echo "CONFIG_DEFAULT_NET_SCH="fq"" >> ./common/arch/arm64/configs/gki_defconfig
+          echo "CONFIG_NET_SCH_SFQ=y" >> ./common/arch/arm64/configs/gki_defconfig
+          echo "CONFIG_NET_SCH_FQ_CODEL=y" >> ./common/arch/arm64/configs/gki_defconfig
+          echo "CONFIG_NET_SCH_TBF=y" >> ./common/arch/arm64/configs/gki_defconfig
+          echo "CONFIG_TCP_CONG_HTCP=y" >> ./common/arch/arm64/configs/gki_defconfig
+          echo "CONFIG_IP_NF_TARGET_ECN=y" >> ./common/arch/arm64/configs/gki_defconfig
+          echo "CONFIG_IP_ECN=y" >> ./common/arch/arm64/configs/gki_defconfig
+          echo "CONFIG_TCP_ECN=y" >> ./common/arch/arm64/configs/gki_defconfig
+          echo "CONFIG_IPV6_ECN=y" >> ./common/arch/arm64/configs/gki_defconfig
+          echo "CONFIG_TCP_FASTOPEN=y" >> ./common/arch/arm64/configs/gki_defconfig
+          
+          # TTL Support
+          echo "CONFIG_IP_NF_TARGET_TTL=y" >> ./common/arch/arm64/configs/gki_defconfig
+          echo "CONFIG_IP6_NF_TARGET_HL=y" >> ./common/arch/arm64/configs/gki_defconfig
+          echo "CONFIG_IP6_NF_MATCH_HL=y" >> ./common/arch/arm64/configs/gki_defconfig
+          
+          # Disable Blacklisted Modules
+          echo "CONFIG_EXT4_INODE_TEST=n" >> ./common/arch/arm64/configs/gki_defconfig
+          echo "CONFIG_F_FS_IPC_LOG=n" >> ./common/arch/arm64/configs/gki_defconfig
+          echo "CONFIG_HUNG_TASK_ENH=n" >> ./common/arch/arm64/configs/gki_defconfig
+          echo "CONFIG_IIO_TEST_FORMAT=n" >> ./common/arch/arm64/configs/gki_defconfig
+          echo "CONFIG_OPLUS_BSP_SIGKILL_DIAGNOSIS=n" >> ./common/arch/arm64/configs/gki_defconfig
+          echo "CONFIG_OPLUS_LOCK_TORTURE=n" >> ./common/arch/arm64/configs/gki_defconfig
+          echo "CONFIG_SOC_TOPOLOGY_TEST=n" >> ./common/arch/arm64/configs/gki_defconfig
+          echo "CONFIG_SOC_UTILS_TEST=n" >> ./common/arch/arm64/configs/gki_defconfig
+          
+          # Disable Debug
+          echo "CONFIG_DEBUG_KERNEL=n" >> ./common/arch/arm64/configs/gki_defconfig
+          echo "CONFIG_DYNAMIC_DEBUG=n" >> ./common/arch/arm64/configs/gki_defconfig         
+          echo "CONFIG_DEBUG_INFO=n" >> ./common/arch/arm64/configs/gki_defconfig
+
+          # Others stuffs
+          echo "CONFIG_POWERSUSPEND=y" >> ./common/arch/arm64/configs/gki_defconfig
+          echo "CONFIG_STATE_NOTIFIER=y" >> ./common/arch/arm64/configs/gki_defconfig
+          echo "CONFIG_UH=y" >> ./common/arch/arm64/configs/gki_defconfig
+          echo "CONFIG_UH_RUST=n" >> ./common/arch/arm64/configs/gki_defconfig
+          echo "CONFIG_ADRENO_IDLER=y" >> ./common/arch/arm64/configs/gki_defconfig
+          echo "CONFIG_ADRENO_BOOST=y" >> ./common/arch/arm64/configs/gki_defconfig
+          echo "CONFIG_SIMPLE_GPU_ALGORITHM=n" >> ./common/arch/arm64/configs/gki_defconfig
+          echo "CONFIG_SCHED_TUNE=y" >> ./common/arch/arm64/configs/gki_defconfig
+          echo "CONFIG_EAS=y" >> ./common/arch/arm64/configs/gki_defconfig
+          echo "CONFIG_SCHEDUTIL_GOV=y" >> ./common/arch/arm64/configs/gki_defconfig
+          echo "CONFIG_UCLAMP_TASK=y" >> ./common/arch/arm64/configs/gki_defconfig
+          echo "CONFIG_UCLAMP_TASK_GROUP=y" >> ./common/arch/arm64/configs/gki_defconfig
+          echo "CONFIG_ANDROID_ART=y" >> ./common/arch/arm64/configs/gki_defconfig
+          echo "CONFIG_ANDROID_ART_LOW_MEMORY=n" >> ./common/arch/arm64/configs/gki_defconfig 
+          echo "CONFIG_UFFD=y" >> ./common/arch/arm64/configs/gki_defconfig 
+          echo "CONFIG_GENERATIONAL_GC=y" >> ./common/arch/arm64/configs/gki_defconfig
+          echo "CONFIG_ANDROID_LOW_MEMORY_KILLER=y" >> ./common/arch/arm64/configs/gki_defconfig 
+          echo "CONFIG_PSI=y" >> ./common/arch/arm64/configs/gki_defconfig 
+          echo "CONFIG_PSI_DEFAULT_DISABLED=n" >> ./common/arch/arm64/configs/gki_defconfig
+          echo "CONFIG_DRM=y" >> ./common/arch/arm64/configs/gki_defconfig 
+          echo "CONFIG_DRM_MSM=y" >> ./common/arch/arm64/configs/gki_defconfig 
+          echo "CONFIG_DRM_ADRENO=y" >> ./common/arch/arm64/configs/gki_defconfig          
+
+          # Blacklist
+          find . -name Kconfig -exec sed -i -e 's/CONFIG_EXT4_INODE_TEST=[ym]/CONFIG_EXT4_INODE_TEST=n/' \
+            -e 's/CONFIG_F_FS_IPC_LOG=[ym]/CONFIG_F_FS_IPC_LOG=n/' \
+            -e 's/CONFIG_HUNG_TASK_ENH=[ym]/CONFIG_HUNG_TASK_ENH=n/' \
+            -e 's/CONFIG_IIO_TEST_FORMAT=[ym]/CONFIG_IIO_TEST_FORMAT=n/' \
+            -e 's/CONFIG_OPLUS_BSP_SIGKILL_DIAGNOSIS=[ym]/CONFIG_OPLUS_BSP_SIGKILL_DIAGNOSIS=n/' \
+            -e 's/CONFIG_OPLUS_LOCK_TORTURE=[ym]/CONFIG_OPLUS_LOCK_TORTURE=n/' \
+            -e 's/CONFIG_SOC_TOPOLOGY_TEST=[ym]/CONFIG_SOC_TOPOLOGY_TEST=n/' \
+            -e 's/CONFIG_SOC_UTILS_TEST=[ym]/CONFIG_SOC_UTILS_TEST=n/' {} \;
+
+      - name: "💫Optimize Network Performance"
+        if: ${{ inputs.kernel_version == '6.6' || inputs.kernel_version == '6.1' }}
+        run: |
+          cd "$CONFIG/kernel_platform/common/net/ipv4"
+          
+          # Configure ECN
+          sed -i 's/net->ipv4.sysctl_tcp_ecn = 2;/net->ipv4.sysctl_tcp_ecn = 2;/' tcp_ipv4.c
+          sed -i 's/net->ipv4.sysctl_tcp_ecn_fallback = 1;/net->ipv4.sysctl_tcp_ecn_fallback = 1;/' tcp_ipv4.c
+          sed -i '/\.procname[[:space:]]*=[[:space:]]*"tcp_ecn"/, /^[[:space:]]*\}/ s/SYSCTL_TWO/SYSCTL_TWO/' sysctl_net_ipv4.c
+          sed -i '/\.procname[[:space:]]*=[[:space:]]*"tcp_ecn_fallback"/, /^[[:space:]]*\}/ s/SYSCTL_ONE/SYSCTL_ONE/' sysctl_net_ipv4.c
+          
+          # Configure TCP pacing
+          NETWORK_TYPE="${NETWORK_TYPE:-lan}"
+          ss_ratio=175
+          ca_ratio=115
+          [ "$NETWORK_TYPE" = "wan" ] && ss_ratio=180 && ca_ratio=120
+          sed -i "s/net->ipv4.sysctl_tcp_pacing_ss_ratio = 200;/net->ipv4.sysctl_tcp_pacing_ss_ratio = $ss_ratio;/" tcp_ipv4.c
+          sed -i "s/net->ipv4.sysctl_tcp_pacing_ca_ratio = 120;/net->ipv4.sysctl_tcp_pacing_ca_ratio = $ca_ratio;/" tcp_ipv4.c
           
           echo "CONFIG_CRYPTO_LZ4HC=y" >> ./common/arch/arm64/configs/gki_defconfig
           echo "CONFIG_CRYPTO_LZ4K=y" >> ./common/arch/arm64/configs/gki_defconfig
