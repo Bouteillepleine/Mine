@@ -237,6 +237,8 @@ jobs:
           CONFIG_DEFAULT_CUBIC=n"
           CONFIG_DEFAULT_CDG=n"
           CONFIG_NET_SCH_SFQ=y
+          CONFIG_TCP_CONG_BIC=n
+          CONFIG_TCP_CONG_WESTWOOD=n
           CONFIG_NET_SCH_FQ_CODEL=y
           CONFIG_NET_SCH_TBF=y
           CONFIG_TCP_CONG_HTCP=y
