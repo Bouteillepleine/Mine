@@ -87,10 +87,10 @@ jobs:
             sm8750|oneplus_13|pineapple|android15|6.6
             sm8750|oneplus_13_v|pineapple|android15|6.6
             sm8750|oneplus_13t|pineapple|android15|6.6
-            sm8750|oneplus_13r|pineapple|android14|6.1
+            sm8650|oneplus_13r|pineapple|android14|6.1
             sm8650|oneplus_ace5|sun|android14|6.1
             sm8750|oneplus_ace5_pro|sun|android15|6.6
-            sm8650|oneplus_ace5_pro_v|sun|android15|6.6
+            sm8750|oneplus_ace5_pro_v|sun|android15|6.6
           '
           INPUT_COMBINATION="${{ inputs.CPU }}|${{ inputs.MODEL }}|${{ inputs.CPUD }}|${{ inputs.ANDROID_VERSION }}|${{ inputs.KERNEL_VERSION }}"
           if ! echo "$VALID_COMBINATIONS" | grep -q "$INPUT_COMBINATION"; then
