@@ -269,26 +269,10 @@ jobs:
           CONFIG_DEBUG_INFO=n
 
           # Others stuffs
-          CONFIG_POWERSUSPEND=y
-          CONFIG_STATE_NOTIFIER=y
-          CONFIG_UH=y
-          CONFIG_UH_RUST=n
           CONFIG_ADRENO_IDLER=y
           CONFIG_ADRENO_BOOST=y
-          CONFIG_SIMPLE_GPU_ALGORITHM=n
-          CONFIG_SCHED_TUNE=y
-          CONFIG_EAS=y
-          CONFIG_SCHEDUTIL_GOV=y
-          CONFIG_UCLAMP_TASK=y
-          CONFIG_UCLAMP_TASK_GROUP=y
-          CONFIG_ANDROID_ART=y 
-          CONFIG_ANDROID_ART_LOW_MEMORY=n 
-          CONFIG_UFFD=y 
-          CONFIG_GENERATIONAL_GC=y
+          CONFIG_SIMPLE_GPU_ALGORITHM=n          
           CONFIG_ANDROID_LOW_MEMORY_KILLER=y 
-          CONFIG_PSI=y 
-          CONFIG_PSI_DEFAULT_DISABLED=n          
-          CONFIG_DRM=y 
           CONFIG_DRM_MSM=y 
           CONFIG_DRM_ADRENO=y
 
