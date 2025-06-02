@@ -333,6 +333,8 @@ jobs:
             echo "CONFIG_DEFAULT_NET_SCH=\"fq\"" >> "$CONFIG_FILE"
             echo "CONFIG_NET_SCH_SFQ=y" >> "$CONFIG_FILE"
             echo "CONFIG_NET_SCH_FQ_CODEL=y" >> "$CONFIG_FILE"
+            echo "CONFIG_TCP_CONG_BIC=n" >> "$CONFIG_FILE"
+            echo "CONFIG_TCP_CONG_WESTWOOD=n" >> "$CONFIG_FILE"
             echo "CONFIG_NET_SCH_TBF=y" >> "$CONFIG_FILE"
             echo "CONFIG_TCP_CONG_HTCP=y" >> "$CONFIG_FILE"
             echo "CONFIG_IP_NF_TARGET_ECN=y" >> "$CONFIG_FILE"
