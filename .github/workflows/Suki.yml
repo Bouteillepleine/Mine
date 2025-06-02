@@ -280,125 +280,134 @@ jobs:
           cp ../../SukiSU_patch/other/zram/zram_patch/${{ inputs.KERNEL_VERSION }}/lz4kd.patch ./
           patch -p1 -F 3 < lz4kd.patch || true
            
+      - name: Debug Directory Structure
+        run: |
+          cd kernel_workspace/kernel_platform
+          pwd
+          find . -name gki_defconfig
+          find . -name build.config.gki
+          ls -la common
+          ls -la common/arch/arm64/configs || echo "configs directory not found"
+          ls -la common/net/ipv4 || echo "net/ipv4 directory not found"
+
       - name: Add SUSFS Configuration Settings
         run: |
           cd kernel_workspace/kernel_platform
           CONFIG_FILE="./common/arch/arm64/configs/gki_defconfig"
-          if [ ! -f "$CONFIG_FILE" ]; then
-            echo "gki_defconfig not found at $CONFIG_FILE, creating empty file"
-            mkdir -p ./common/arch/arm64/configs
-            touch "$CONFIG_FILE"
+          if [[ "${{ inputs.FEIL }}" != "oneplus_13r" ]]; then
+            if [ ! -f "$CONFIG_FILE" ]; then
+              echo "gki_defconfig not found at $CONFIG_FILE, creating empty file"
+              mkdir -p ./common/arch/arm64/configs
+              touch "$CONFIG_FILE"
+            fi
+            echo "CONFIG_KSU=y" >> "$CONFIG_FILE"
+            # Add VFS configuration settings
+            echo "CONFIG_KSU_SUSFS_SUS_SU=n" >> "$CONFIG_FILE"
+            echo "CONFIG_KSU_MANUAL_HOOK=y" >> "$CONFIG_FILE"
+            # Add SUSFS configuration settings
+            echo "CONFIG_KSU_SUSFS=y" >> "$CONFIG_FILE"
+            echo "CONFIG_KSU_SUSFS_HAS_MAGIC_MOUNT=y" >> "$CONFIG_FILE"
+            echo "CONFIG_KSU_SUSFS_SUS_PATH=y" >> "$CONFIG_FILE"
+            echo "CONFIG_KSU_SUSFS_SUS_MOUNT=y" >> "$CONFIG_FILE"
+            echo "CONFIG_KSU_SUSFS_AUTO_ADD_SUS_KSU_DEFAULT_MOUNT=y" >> "$CONFIG_FILE"
+            echo "CONFIG_KSU_SUSFS_AUTO_ADD_SUS_BIND_MOUNT=y" >> "$CONFIG_FILE"
+            echo "CONFIG_KSU_SUSFS_SUS_KSTAT=y" >> "$CONFIG_FILE"
+            echo "CONFIG_KSU_SUSFS_SUS_OVERLAYFS=n" >> "$CONFIG_FILE"
+            echo "CONFIG_KSU_SUSFS_TRY_UMOUNT=y" >> "$CONFIG_FILE"
+            echo "CONFIG_KSU_SUSFS_AUTO_ADD_TRY_UMOUNT_FOR_BIND_MOUNT=y" >> "$CONFIG_FILE"
+            echo "CONFIG_KSU_SUSFS_SPOOF_UNAME=y" >> "$CONFIG_FILE"
+            echo "CONFIG_KSU_SUSFS_ENABLE_LOG=y" >> "$CONFIG_FILE"
+            echo "CONFIG_KSU_SUSFS_HIDE_KSU_SUSFS_SYMBOLS=y" >> "$CONFIG_FILE"
+            echo "CONFIG_KSU_SUSFS_SPOOF_CMDLINE_OR_BOOTCONFIG=y" >> "$CONFIG_FILE"
+            echo "CONFIG_KSU_SUSFS_OPEN_REDIRECT=y" >> "$CONFIG_FILE"
+            echo "CONFIG_TMPFS_XATTR=y" >> "$CONFIG_FILE"
+            echo "CONFIG_TMPFS_POSIX_ACL=y" >> "$CONFIG_FILE"
+            # BBR and Network
+            echo "CONFIG_TCP_CONG_ADVANCED=y" >> "$CONFIG_FILE"
+            echo "CONFIG_TCP_CONG_BBR=y" >> "$CONFIG_FILE"
+            echo "CONFIG_DEFAULT_TCP_CONG=\"bbr\"" >> "$CONFIG_FILE"
+            echo "CONFIG_TCP_CONG_CDG=y" >> "$CONFIG_FILE"
+            echo "CONFIG_DEFAULT_BBR=y" >> "$CONFIG_FILE"
+            echo "CONFIG_NET_SCH_DEFAULT=y" >> "$CONFIG_FILE"
+            echo "CONFIG_DEFAULT_FQ=y" >> "$CONFIG_FILE"
+            echo "CONFIG_DEFAULT_NET_SCH=\"fq\"" >> "$CONFIG_FILE"
+            echo "CONFIG_NET_SCH_SFQ=y" >> "$CONFIG_FILE"
+            echo "CONFIG_NET_SCH_FQ_CODEL=y" >> "$CONFIG_FILE"
+            echo "CONFIG_NET_SCH_TBF=y" >> "$CONFIG_FILE"
+            echo "CONFIG_TCP_CONG_HTCP=y" >> "$CONFIG_FILE"
+            echo "CONFIG_IP_NF_TARGET_ECN=y" >> "$CONFIG_FILE"
+            echo "CONFIG_IP_ECN=y" >> "$CONFIG_FILE"
+            echo "CONFIG_TCP_ECN=y" >> "$CONFIG_FILE"
+            echo "CONFIG_IPV6_ECN=y" >> "$CONFIG_FILE"
+            echo "CONFIG_TCP_FASTOPEN=y" >> "$CONFIG_FILE"
+            # TTL Support
+            echo "CONFIG_IP_NF_TARGET_TTL=y" >> "$CONFIG_FILE"
+            echo "CONFIG_IP6_NF_TARGET_HL=y" >> "$CONFIG_FILE"
+            echo "CONFIG_IP6_NF_MATCH_HL=y" >> "$CONFIG_FILE"
+            # Disable Blacklisted Modules
+            echo "CONFIG_EXT4_INODE_TEST=n" >> "$CONFIG_FILE"
+            echo "CONFIG_F_FS_IPC_LOG=n" >> "$CONFIG_FILE"
+            echo "CONFIG_HUNG_TASK_ENH=n" >> "$CONFIG_FILE"
+            echo "CONFIG_IIO_TEST_FORMAT=n" >> "$CONFIG_FILE"
+            echo "CONFIG_OPLUS_BSP_SIGKILL_DIAGNOSIS=n" >> "$CONFIG_FILE"
+            echo "CONFIG_OPLUS_LOCK_TORTURE=n" >> "$CONFIG_FILE"
+            echo "CONFIG_SOC_TOPOLOGY_TEST=n" >> "$CONFIG_FILE"
+            echo "CONFIG_SOC_UTILS_TEST=n" >> "$CONFIG_FILE"
+            # Disable Debug
+            echo "CONFIG_DEBUG_KERNEL=n" >> "$CONFIG_FILE"
+            echo "CONFIG_DYNAMIC_DEBUG=n" >> "$CONFIG_FILE"
+            echo "CONFIG_DEBUG_INFO=n" >> "$CONFIG_FILE"
+            # Other stuff
+            echo "CONFIG_POWERSUSPEND=y" >> "$CONFIG_FILE"
+            echo "CONFIG_STATE_NOTIFIER=y" >> "$CONFIG_FILE"
+            echo "CONFIG_UH=y" >> "$CONFIG_FILE"
+            echo "CONFIG_UH_RUST=n" >> "$CONFIG_FILE"
+            echo "CONFIG_ADRENO_IDLER=y" >> "$CONFIG_FILE"
+            echo "CONFIG_ADRENO_BOOST=y" >> "$CONFIG_FILE"
+            echo "CONFIG_SIMPLE_GPU_ALGORITHM=n" >> "$CONFIG_FILE"
+            echo "CONFIG_SCHED_TUNE=y" >> "$CONFIG_FILE"
+            echo "CONFIG_EAS=y" >> "$CONFIG_FILE"
+            echo "CONFIG_SCHEDUTIL_GOV=y" >> "$CONFIG_FILE"
+            echo "CONFIG_UCLAMP_TASK=y" >> "$CONFIG_FILE"
+            echo "CONFIG_UCLAMP_TASK_GROUP=y" >> "$CONFIG_FILE"
+            echo "CONFIG_ANDROID_ART=y" >> "$CONFIG_FILE"
+            echo "CONFIG_ANDROID_ART_LOW_MEMORY=n" >> "$CONFIG_FILE"
+            echo "CONFIG_UFFD=y" >> "$CONFIG_FILE"
+            echo "CONFIG_GENERATIONAL_GC=y" >> "$CONFIG_FILE"
+            echo "CONFIG_ANDROID_LOW_MEMORY_KILLER=y" >> "$CONFIG_FILE"
+            echo "CONFIG_PSI=y" >> "$CONFIG_FILE"
+            echo "CONFIG_PSI_DEFAULT_DISABLED=n" >> "$CONFIG_FILE"
+            echo "CONFIG_DRM=y" >> "$CONFIG_FILE"
+            echo "CONFIG_DRM_MSM=y" >> "$CONFIG_FILE"
+            echo "CONFIG_DRM_ADRENO=y" >> "$CONFIG_FILE"
+            # Blacklist
+            find . -name Kconfig -exec sed -i -e 's/CONFIG_EXT4_INODE_TEST=[ym]/CONFIG_EXT4_INODE_TEST=n/' \
+              -e 's/CONFIG_F_FS_IPC_LOG=[ym]/CONFIG_F_FS_IPC_LOG=n/' \
+              -e 's/CONFIG_HUNG_TASK_ENH=[ym]/CONFIG_HUNG_TASK_ENH=n/' \
+              -e 's/CONFIG_IIO_TEST_FORMAT=[ym]/CONFIG_IIO_TEST_FORMAT=n/' \
+              -e 's/CONFIG_OPLUS_BSP_SIGKILL_DIAGNOSIS=[ym]/CONFIG_OPLUS_BSP_SIGKILL_DIAGNOSIS=n/' \
+              -e 's/CONFIG_OPLUS_LOCK_TORTURE=[ym]/CONFIG_OPLUS_LOCK_TORTURE=n/' \
+              -e 's/CONFIG_SOC_TOPOLOGY_TEST=[ym]/CONFIG_SOC_TOPOLOGY_TEST=n/' \
+              -e 's/CONFIG_SOC_UTILS_TEST=[ym]/CONFIG_SOC_UTILS_TEST=n/' {} \;
+          else
+            echo "Skipping gki_defconfig modifications for oneplus_13r (Bazel build)"
           fi
-          echo "CONFIG_KSU=y" >> "$CONFIG_FILE"
-          # Add VFS configuration settings
-          echo "CONFIG_KSU_SUSFS_SUS_SU=n" >> "$CONFIG_FILE"
-          echo "CONFIG_KSU_MANUAL_HOOK=y" >> "$CONFIG_FILE"
-          
-          # Add SUSFS configuration settings
-          echo "CONFIG_KSU_SUSFS=y" >> "$CONFIG_FILE"
-          echo "CONFIG_KSU_SUSFS_HAS_MAGIC_MOUNT=y" >> "$CONFIG_FILE"
-          echo "CONFIG_KSU_SUSFS_SUS_PATH=y" >> "$CONFIG_FILE"
-          echo "CONFIG_KSU_SUSFS_SUS_MOUNT=y" >> "$CONFIG_FILE"
-          echo "CONFIG_KSU_SUSFS_AUTO_ADD_SUS_KSU_DEFAULT_MOUNT=y" >> "$CONFIG_FILE"
-          echo "CONFIG_KSU_SUSFS_AUTO_ADD_SUS_BIND_MOUNT=y" >> "$CONFIG_FILE"
-          echo "CONFIG_KSU_SUSFS_SUS_KSTAT=y" >> "$CONFIG_FILE"
-          echo "CONFIG_KSU_SUSFS_SUS_OVERLAYFS=n" >> "$CONFIG_FILE"
-          echo "CONFIG_KSU_SUSFS_TRY_UMOUNT=y" >> "$CONFIG_FILE"
-          echo "CONFIG_KSU_SUSFS_AUTO_ADD_TRY_UMOUNT_FOR_BIND_MOUNT=y" >> "$CONFIG_FILE"
-          echo "CONFIG_KSU_SUSFS_SPOOF_UNAME=y" >> "$CONFIG_FILE"
-          echo "CONFIG_KSU_SUSFS_ENABLE_LOG=y" >> "$CONFIG_FILE"
-          echo "CONFIG_KSU_SUSFS_HIDE_KSU_SUSFS_SYMBOLS=y" >> "$CONFIG_FILE"
-          echo "CONFIG_KSU_SUSFS_SPOOF_CMDLINE_OR_BOOTCONFIG=y" >> "$CONFIG_FILE"
-          echo "CONFIG_KSU_SUSFS_OPEN_REDIRECT=y" >> "$CONFIG_FILE"
-          echo "CONFIG_TMPFS_XATTR=y" >> "$CONFIG_FILE"
-          echo "CONFIG_TMPFS_POSIX_ACL=y" >> "$CONFIG_FILE"
-          
-          # BBR and Network
-          echo "CONFIG_TCP_CONG_ADVANCED=y" >> "$CONFIG_FILE"
-          echo "CONFIG_TCP_CONG_BBR=y" >> "$CONFIG_FILE"
-          echo "CONFIG_DEFAULT_TCP_CONG=\"bbr\"" >> "$CONFIG_FILE"
-          echo "CONFIG_TCP_CONG_CDG=y" >> "$CONFIG_FILE"
-          echo "CONFIG_DEFAULT_BBR=y" >> "$CONFIG_FILE"
-          echo "CONFIG_NET_SCH_DEFAULT=y" >> "$CONFIG_FILE"
-          echo "CONFIG_DEFAULT_FQ=y" >> "$CONFIG_FILE"
-          echo "CONFIG_DEFAULT_NET_SCH=\"fq\"" >> "$CONFIG_FILE"
-          echo "CONFIG_NET_SCH_SFQ=y" >> "$CONFIG_FILE"
-          echo "CONFIG_NET_SCH_FQ_CODEL=y" >> "$CONFIG_FILE"
-          echo "CONFIG_NET_SCH_TBF=y" >> "$CONFIG_FILE"
-          echo "CONFIG_TCP_CONG_HTCP=y" >> "$CONFIG_FILE"
-          echo "CONFIG_IP_NF_TARGET_ECN=y" >> "$CONFIG_FILE"
-          echo "CONFIG_IP_ECN=y" >> "$CONFIG_FILE"
-          echo "CONFIG_TCP_ECN=y" >> "$CONFIG_FILE"
-          echo "CONFIG_IPV6_ECN=y" >> "$CONFIG_FILE"
-          echo "CONFIG_TCP_FASTOPEN=y" >> "$CONFIG_FILE"
-          
-          # TTL Support
-          echo "CONFIG_IP_NF_TARGET_TTL=y" >> "$CONFIG_FILE"
-          echo "CONFIG_IP6_NF_TARGET_HL=y" >> "$CONFIG_FILE"
-          echo "CONFIG_IP6_NF_MATCH_HL=y" >> "$CONFIG_FILE"
-          
-          # Disable Blacklisted Modules
-          echo "CONFIG_EXT4_INODE_TEST=n" >> "$CONFIG_FILE"
-          echo "CONFIG_F_FS_IPC_LOG=n" >> "$CONFIG_FILE"
-          echo "CONFIG_HUNG_TASK_ENH=n" >> "$CONFIG_FILE"
-          echo "CONFIG_IIO_TEST_FORMAT=n" >> "$CONFIG_FILE"
-          echo "CONFIG_OPLUS_BSP_SIGKILL_DIAGNOSIS=n" >> "$CONFIG_FILE"
-          echo "CONFIG_OPLUS_LOCK_TORTURE=n" >> "$CONFIG_FILE"
-          echo "CONFIG_SOC_TOPOLOGY_TEST=n" >> "$CONFIG_FILE"
-          echo "CONFIG_SOC_UTILS_TEST=n" >> "$CONFIG_FILE"
-          
-          # Disable Debug
-          echo "CONFIG_DEBUG_KERNEL=n" >> "$CONFIG_FILE"
-          echo "CONFIG_DYNAMIC_DEBUG=n" >> "$CONFIG_FILE"         
-          echo "CONFIG_DEBUG_INFO=n" >> "$CONFIG_FILE"
-          
-          # Other stuff
-          echo "CONFIG_POWERSUSPEND=y" >> "$CONFIG_FILE"
-          echo "CONFIG_STATE_NOTIFIER=y" >> "$CONFIG_FILE"
-          echo "CONFIG_UH=y" >> "$CONFIG_FILE"
-          echo "CONFIG_UH_RUST=n" >> "$CONFIG_FILE"
-          echo "CONFIG_ADRENO_IDLER=y" >> "$CONFIG_FILE"
-          echo "CONFIG_ADRENO_BOOST=y" >> "$CONFIG_FILE"
-          echo "CONFIG_SIMPLE_GPU_ALGORITHM=n" >> "$CONFIG_FILE"
-          echo "CONFIG_SCHED_TUNE=y" >> "$CONFIG_FILE"
-          echo "CONFIG_EAS=y" >> "$CONFIG_FILE"
-          echo "CONFIG_SCHEDUTIL_GOV=y" >> "$CONFIG_FILE"
-          echo "CONFIG_UCLAMP_TASK=y" >> "$CONFIG_FILE"
-          echo "CONFIG_UCLAMP_TASK_GROUP=y" >> "$CONFIG_FILE"
-          echo "CONFIG_ANDROID_ART=y" >> "$CONFIG_FILE"
-          echo "CONFIG_ANDROID_ART_LOW_MEMORY=n" >> "$CONFIG_FILE"
-          echo "CONFIG_UFFD=y" >> "$CONFIG_FILE"
-          echo "CONFIG_GENERATIONAL_GC=y" >> "$CONFIG_FILE"
-          echo "CONFIG_ANDROID_LOW_MEMORY_KILLER=y" >> "$CONFIG_FILE"
-          echo "CONFIG_PSI=y" >> "$CONFIG_FILE"
-          echo "CONFIG_PSI_DEFAULT_DISABLED=n" >> "$CONFIG_FILE"
-          echo "CONFIG_DRM=y" >> "$CONFIG_FILE"
-          echo "CONFIG_DRM_MSM=y" >> "$CONFIG_FILE"
-          echo "CONFIG_DRM_ADRENO=y" >> "$CONFIG_FILE"
-          
-          # Blacklist
-          find . -name Kconfig -exec sed -i -e 's/CONFIG_EXT4_INODE_TEST=[ym]/CONFIG_EXT4_INODE_TEST=n/' \
-            -e 's/CONFIG_F_FS_IPC_LOG=[ym]/CONFIG_F_FS_IPC_LOG=n/' \
-            -e 's/CONFIG_HUNG_TASK_ENH=[ym]/CONFIG_HUNG_TASK_ENH=n/' \
-            -e 's/CONFIG_IIO_TEST_FORMAT=[ym]/CONFIG_IIO_TEST_FORMAT=n/' \
-            -e 's/CONFIG_OPLUS_BSP_SIGKILL_DIAGNOSIS=[ym]/CONFIG_OPLUS_BSP_SIGKILL_DIAGNOSIS=n/' \
-            -e 's/CONFIG_OPLUS_LOCK_TORTURE=[ym]/CONFIG_OPLUS_LOCK_TORTURE=n/' \
-            -e 's/CONFIG_SOC_TOPOLOGY_TEST=[ym]/CONFIG_SOC_TOPOLOGY_TEST=n/' \
-            -e 's/CONFIG_SOC_UTILS_TEST=[ym]/CONFIG_SOC_UTILS_TEST=n/' {} \;
 
       - name: Optimize Network Performance
         if: ${{ inputs.kernel_version == '6.6' || inputs.kernel_version == '6.1' }}
         run: |
           cd kernel_workspace/kernel_platform || { echo "Failed to navigate to kernel_platform"; exit 1; }
-          CONFIG_FILE="./common/arch/arm64/configs/gki_defconfig"
-          BUILD_CONFIG="./common/build.config.gki"
-          if [ ! -f "$CONFIG_FILE" ]; then
-            echo "gki_defconfig not found at $CONFIG_FILE, cannot proceed"
-            exit 1
-          fi
-          if [ ! -f "$BUILD_CONFIG" ]; then
-            echo "build.config.gki not found at $BUILD_CONFIG, cannot proceed"
-            exit 1
+          CONFIG_FILE="../arch/arm64/configs/gki_defconfig"
+          BUILD_CONFIG="../build.config.gki"
+          if [[ "${{ inputs.FEIL }}" != "oneplus_13r" ]]; then
+            if [ ! -f "$CONFIG_FILE" ]; then
+              echo "gki_defconfig not found at $CONFIG_FILE, cannot proceed"
+              exit 1
+            fi
+            if [ ! -f "$BUILD_CONFIG" ]; then
+              echo "build.config.gki not found at $BUILD_CONFIG, cannot proceed"
+              exit 1
+            fi
           fi
           mkdir -p common/net/ipv4
           cd common/net/ipv4 || { echo "Failed to navigate to common/net/ipv4"; exit 1; }
@@ -413,9 +422,9 @@ jobs:
             sed -i 's/net->ipv4.sysctl_tcp_ecn_fallback = 1;/net->ipv4.sysctl_tcp_ecn_fallback = 1;/' tcp_ipv4.c || true
             NETWORK_TYPE="${NETWORK_TYPE:-lan}"
             ss_ratio=175
-            ca_ratio=115
-            [ "$NETWORK_TYPE" = "wan" ] && ss_ratio=180 && ca_ratio=120
-            sed -i "s/net->ipv4.sysctl_tcp_pacing_ss_ratio = 200;/net->ipv4.sysctl_tcp_pacing_ss_ratio = $ss_ratio;/" tcp_ipv4.c || true
+            ca_ratio=40
+            [ "$NETWORK_TYPE" = "wan" ] && { ss_ratio=180; ca_ratio=120; }
+            sed -i "s/net->ipv4.sysctl_tcp_pacing_ss_ratio = 200;/net->ipv4.sysctl_tcp_pacing_ss_ratio = $ss_ratio};/" tcp_ipv4.c || true
             sed -i "s/net->ipv4.sysctl_tcp_pacing_ca_ratio = 120;/net->ipv4.sysctl_tcp_pacing_ca_ratio = $ca_ratio;/" tcp_ipv4.c || true
           else
             echo "tcp_ipv4.c not found, skipping TCP/ECN configuration"
@@ -424,45 +433,53 @@ jobs:
             sed -i '/\.procname[[:space:]]*=[[:space:]]*"tcp_ecn"/, /^[[:space:]]*\}/ s/SYSCTL_TWO/SYSCTL_TWO/' sysctl_net_ipv4.c || true
             sed -i '/\.procname[[:space:]]*=[[:space:]]*"tcp_ecn_fallback"/, /^[[:space:]]*\}/ s/SYSCTL_ONE/SYSCTL_ONE/' sysctl_net_ipv4.c || true
           else
-            echo "sysctl_net_ipv4.c not found, skipping sysctl configuration"
+            echo "sysctl_net_ipv4.c not found, skipping configuration"
           fi
-          echo "CONFIG_CRYPTO_LZ4HC=y" >> "$CONFIG_FILE"
-          echo "CONFIG_CRYPTO_LZ4K=y" >> "$CONFIG_FILE"
-          echo "CONFIG_CRYPTO_LZ4KD=y" >> "$CONFIG_FILE"
-          echo "CONFIG_CRYPTO_842=y" >> "$CONFIG_FILE"
-          sudo sed -i 's/check_defconfig//' "$BUILD_CONFIG"
+          if [[ "${{ inputs.FEIL }}" != "oneplus_13r" ]]; then
+            echo "CONFIG_CRYPTO_LZ4HC=y" >> "$CONFIG_FILE"
+            echo "CONFIG_CRYPTO_LZ4K=y" >> "$CONFIG_FILE"
+            echo "CONFIG_CRYPTO_LZ4KD=y" >> "$CONFIG_FILE"
+            echo "CONFIG_CRYPTO_842=y" >> "$CONFIG_FILE"
+            sudo sed -i 's/check_defconfig//' "$BUILD_CONFIG"
+          fi
           cd ../
           git add -A && git commit -a -m "Optimize network performance" || true
-          
+          shell: /usr/bin/bash -e {0}
+
       - name: Add KPM Configuration Settings
         if: ${{ inputs.enable_feature_x }}
         run: |
           cd kernel_workspace/kernel_platform
           CONFIG_FILE="./common/arch/arm64/configs/gki_defconfig"
           BUILD_CONFIG="./common/build.config.gki"
-          if [ ! -f "$CONFIG_FILE" ]; then
-            echo "gki_defconfig not found at $CONFIG_FILE, cannot proceed"
-            exit 1
+          if [[ "${{ inputs.FEIL }}" != "oneplus_13r" ]]; then
+            if [ ! -f "$CONFIG_FILE" ]; then
+              echo "gki_defconfig not found at $CONFIG_FILE, cannot proceed"
+              exit 1
+            fi
+            if [ ! -f "$BUILD_CONFIG" ]; then
+              echo "build.config.gki not found at $BUILD_CONFIG, cannot proceed"
+              exit 1
+            fi
+            echo "CONFIG_KPM=y" >> "$CONFIG_FILE"
+            sudo sed -i 's/check_defconfig//' "$BUILD_CONFIG"
           fi
-          if [ ! -f "$BUILD_CONFIG" ]; then
-            echo "build.config.gki not found at $BUILD_CONFIG, cannot proceed"
-            exit 1
-          fi
-          echo "CONFIG_KPM=y" >> "$CONFIG_FILE"
-          sudo sed -i 's/check_defconfig//' "$BUILD_CONFIG"
           cd common
           git add -A && git commit -a -m "Add KPM configuration" || true
-          
+
       - name: Add kernel custom name
         run: |
-         cd kernel_workspace/kernel_platform
-         CONFIG_FILE="./common/arch/arm64/configs/gki_defconfig"
-         if [ ! -f "$CONFIG_FILE" ]; then
-           echo "gki_defconfig not found at $CONFIG_FILE, cannot proceed"
-           exit 1
-         fi
-         sed -i 's/${scm_version}//' ./common/scripts/setlocalversion
-         sudo sed -i 's/-4k/${{ inputs.KERNEL_NAME }}/g' "$CONFIG_FILE"
+          cd kernel_workspace/kernel_platform
+          CONFIG_FILE="./common/arch/arm64/configs/gki_defconfig"
+          if [[ "${{ inputs.FEIL }}" != "oneplus_13r" ]]; then
+            if [ ! -f "$CONFIG_FILE" ]; then
+              echo "gki_defconfig not found at $CONFIG_FILE, cannot proceed"
+              exit 1
+            fi
+            sed -i 's/${scm_version}//' ./common/scripts/setlocalversion
+            sudo sed -i 's/-4k/${{ inputs.KERNEL_NAME }}/g' "$CONFIG_FILE}"
+          fi
+          
       - name: Set Kernel build timestamp
         run: |
           export SOURCE_DATE_EPOCH=$(date -d "${{ inputs.KERNEL_TIME }}" +%s)
