@@ -374,14 +374,16 @@ jobs:
       - name: "💫Optimize Network Performance"
         if: ${{ inputs.kernel_version == '6.6' || inputs.kernel_version == '6.1' }}
         run: |
-          cd "$CONFIG/kernel_platform/common/net/ipv4"
+          cd "$CONFIG/kernel_platform" || exit 1
+          mkdir -p common/net/ipv4  # Ensure the directory exists
+          cd common/net/ipv4
           
           # Configure ECN
-          sed -i 's/net->ipv4.sysctl_tcp_ecn = 2;/net->ipv4.sysctl_tcp_ecn = 2;/' tcp_ipv4.c
-          sed -i 's/net->ipv4.sysctl_tcp_ecn_fallback = 1;/net->ipv4.sysctl_tcp_ecn_fallback = 1;/' tcp_ipv4.c
-          sed -i '/\.procname[[:space:]]*=[[:space:]]*"tcp_ecn"/, /^[[:space:]]*\}/ s/SYSCTL_TWO/SYSCTL_TWO/' sysctl_net_ipv4.c
-          sed -i '/\.procname[[:space:]]*=[[:space:]]*"tcp_ecn_fallback"/, /^[[:space:]]*\}/ s/SYSCTL_ONE/SYSCTL_ONE/' sysctl_net_ipv4.c
-          
+          sed -i 's/net->ipv4.sysctl_tcp_ecn = 2;/net->ipv4.sysctl_tcp_ecn = 2;/' tcp_ipv4.c || true
+          sed -i 's/net->ipv4.sysctl_tcp_ecn_fallback = 1;/net->ipv4.sysctl_tcp_ecn_fallback = 1;/' tcp_ipv4.c || true
+          sed -i '/\.procname[[:space:]]*=[[:space:]]*"tcp_ecn"/, /^[[:space:]]*\}/ s/SYSCTL_TWO/SYSCTL_TWO/' sysctl_net_ipv4.c || true
+          sed -i '/\.procname[[:space:]]*=[[:space:]]*"tcp_ecn_fallback"/, /^[[:space:]]*\}/ s/SYSCTL_ONE/SYSCTL_ONE/' sysctl_net_ipv4.c || true
+                
           # Configure TCP pacing
           NETWORK_TYPE="${NETWORK_TYPE:-lan}"
           ss_ratio=175
