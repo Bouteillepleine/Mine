@@ -408,42 +408,50 @@ jobs:
             LTO=thin ./kernel_platform/oplus/build/oplus_build_kernel.sh ${{ inputs.soc }} "$BUILD_TYPE"
           fi
 
-      - name: "🥰Copy Images"
+      - name: Copy Images
         run: |
           echo "Changing to configuration directory: $CONFIG..."
           cd "$CONFIG"
-          
+
           echo "Copying Image"
           cp ./out/dist/Image ../AnyKernel3/Image
           if [ "${{ inputs.model }}" == "OPAce5Pro" ]; then
             cp ./out/dist/dtbo.img ../AnyKernel3/
             cp ./out/dist/system_dlkm.erofs.img ../AnyKernel3/system_dlkm.img
+            # cp ./out/dist/vendor_dlkm.img ../AnyKernel3/
+            # cp ./out/dist/vendor_boot.img ../AnyKernel3/
           fi
 
-      - name: "🐂Create ZIP Files for Different Formats"
+          if [ "${{ inputs.model }}" == "OP13" ]; then
+            cp ./out/dist/dtbo.img ../AnyKernel3/
+          fi
+
+      - name: Create ZIP Files for Different Formats
         run: |
           echo "Navigating to AnyKernel3 directory..."
           cd ./AnyKernel3
-          
-          # Verify sysctl.conf exists
-          if [ ! -f "sysctl.conf" ]; then
-            echo "Error: sysctl.conf not found in AnyKernel3 directory"
-            exit 1
-          fi
-          
+
           # Zip the files in the AnyKernel3 directory with a new naming convention
           ZIP_NAME="${{ inputs.model }}_${{ inputs.android_version }}_${{ inputs.kernel_version }}_Next_SUSFS_AnyKernel3.zip"
           echo "Creating zip file $ZIP_NAME..."
           zip -r "../$ZIP_NAME" ./*
-          # Fengchi Patch for OP13r
+
+          # Fengchi Patch for OPAce5Pro
           if [ "${{ inputs.model }}" == "OPAce5Pro" ]; then
             sed -i 's/hmbird/xxbird/g' dtbo.img
             zip -r "../$ZIP_NAME-CN-version.zip" ./*
           fi
 
-      - name: "💫Upload Build Artifacts"
+          # Fengchi Patch for OP13
+          if [ "${{ inputs.model }}" == "OP13" ]; then
+            sed -i 's/hmbird/xxbird/g' dtbo.img
+            zip -r "../$ZIP_NAME-CN-version.zip" ./*
+          fi
+
+      - name: "🐂Upload Build Artifacts"
         uses: actions/upload-artifact@v4
         with:
           name: kernel-${{ env.CONFIG }}
+          compression-level: 0
           path: |
             *.zip
