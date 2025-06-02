@@ -234,6 +234,8 @@ jobs:
           CONFIG_NET_SCH_DEFAULT=y
           CONFIG_DEFAULT_FQ=y
           CONFIG_DEFAULT_NET_SCH="fq"
+          CONFIG_DEFAULT_CUBIC=n"
+          CONFIG_DEFAULT_CDG=n"
           CONFIG_NET_SCH_SFQ=y
           CONFIG_NET_SCH_FQ_CODEL=y
           CONFIG_NET_SCH_TBF=y
@@ -283,8 +285,7 @@ jobs:
           CONFIG_GENERATIONAL_GC=y
           CONFIG_ANDROID_LOW_MEMORY_KILLER=y 
           CONFIG_PSI=y 
-          CONFIG_PSI_DEFAULT_DISABLED=n
-          ONFIG_VKMS=y 
+          CONFIG_PSI_DEFAULT_DISABLED=n          
           CONFIG_DRM=y 
           CONFIG_DRM_MSM=y 
           CONFIG_DRM_ADRENO=y
