@@ -344,6 +344,15 @@ jobs:
             echo "CONFIG_IP_NF_TARGET_TTL=y" >> "$CONFIG_FILE"
             echo "CONFIG_IP6_NF_TARGET_HL=y" >> "$CONFIG_FILE"
             echo "CONFIG_IP6_NF_MATCH_HL=y" >> "$CONFIG_FILE"
+            
+            if [[ "${{ inputs.FEIL }}" != "oneplus_13r" ]]; then
+            echo "CONFIG_CRYPTO_LZ4HC=y" >> "$CONFIG_FILE"
+            echo "CONFIG_CRYPTO_LZ4K=y" >> "$CONFIG_FILE"
+            echo "CONFIG_CRYPTO_LZ4KD=y" >> "$CONFIG_FILE"
+            echo "CONFIG_CRYPTO_842=y" >> "$CONFIG_FILE"
+            sudo sed -i 's/check_defconfig//' "$BUILD_CONFIG"
+          fi
+          
             # Disable Blacklisted Modules
             echo "CONFIG_EXT4_INODE_TEST=n" >> "$CONFIG_FILE"
             echo "CONFIG_F_FS_IPC_LOG=n" >> "$CONFIG_FILE"
@@ -424,7 +433,7 @@ jobs:
             ss_ratio=175
             ca_ratio=40
             [ "$NETWORK_TYPE" = "wan" ] && { ss_ratio=180; ca_ratio=120; }
-            sed -i "s/net->ipv4.sysctl_tcp_pacing_ss_ratio = 200;/net->ipv4.sysctl_tcp_pacing_ss_ratio = $ss_ratio};/" tcp_ipv4.c || true
+            sed -i "s/net->ipv4.sysctl_tcp_pacing_ss_ratio = 200;/net->ipv4.sysctl_tcp_pacing_ss_ratio = $ss_ratio;/" tcp_ipv4.c || true
             sed -i "s/net->ipv4.sysctl_tcp_pacing_ca_ratio = 120;/net->ipv4.sysctl_tcp_pacing_ca_ratio = $ca_ratio;/" tcp_ipv4.c || true
           else
             echo "tcp_ipv4.c not found, skipping TCP/ECN configuration"
@@ -433,19 +442,11 @@ jobs:
             sed -i '/\.procname[[:space:]]*=[[:space:]]*"tcp_ecn"/, /^[[:space:]]*\}/ s/SYSCTL_TWO/SYSCTL_TWO/' sysctl_net_ipv4.c || true
             sed -i '/\.procname[[:space:]]*=[[:space:]]*"tcp_ecn_fallback"/, /^[[:space:]]*\}/ s/SYSCTL_ONE/SYSCTL_ONE/' sysctl_net_ipv4.c || true
           else
-            echo "sysctl_net_ipv4.c not found, skipping configuration"
-          fi
-          if [[ "${{ inputs.FEIL }}" != "oneplus_13r" ]]; then
-            echo "CONFIG_CRYPTO_LZ4HC=y" >> "$CONFIG_FILE"
-            echo "CONFIG_CRYPTO_LZ4K=y" >> "$CONFIG_FILE"
-            echo "CONFIG_CRYPTO_LZ4KD=y" >> "$CONFIG_FILE"
-            echo "CONFIG_CRYPTO_842=y" >> "$CONFIG_FILE"
-            sudo sed -i 's/check_defconfig//' "$BUILD_CONFIG"
-          fi
+            echo "sysctl_net_ipv4.c not found, skipping sysctl configuration"
+          fi          
           cd ../
           git add -A && git commit -a -m "Optimize network performance" || true
-          shell: /usr/bin/bash -e {0}
-
+        
       - name: Add KPM Configuration Settings
         if: ${{ inputs.enable_feature_x }}
         run: |
