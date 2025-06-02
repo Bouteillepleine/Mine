@@ -232,8 +232,6 @@ jobs:
           CONFIG_TCP_CONG_CDG=y
           CONFIG_DEFAULT_BBR=y
           CONFIG_NET_SCH_DEFAULT=y
-          CONFIG_TCP_CONG_BIC=n
-          CONFIG_TCP_CONG_WESTWOOD=n
           CONFIG_DEFAULT_FQ=y
           CONFIG_DEFAULT_NET_SCH="fq"
           CONFIG_NET_SCH_SFQ=y
@@ -279,6 +277,17 @@ jobs:
           CONFIG_SCHEDUTIL_GOV=y
           CONFIG_UCLAMP_TASK=y
           CONFIG_UCLAMP_TASK_GROUP=y
+          CONFIG_ANDROID_ART=y 
+          CONFIG_ANDROID_ART_LOW_MEMORY=n 
+          CONFIG_UFFD=y 
+          CONFIG_GENERATIONAL_GC=y
+          CONFIG_ANDROID_LOW_MEMORY_KILLER=y 
+          CONFIG_PSI=y 
+          CONFIG_PSI_DEFAULT_DISABLED=n
+          ONFIG_VKMS=y 
+          CONFIG_DRM=y 
+          CONFIG_DRM_MSM=y 
+          CONFIG_DRM_ADRENO=y
 
           EOF
 
