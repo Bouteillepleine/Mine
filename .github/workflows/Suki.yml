@@ -10,7 +10,7 @@ on:
         options: 
          - sm8750
          - sm8650
-      FEIL:
+      MODEL:
         type: choice
         description: "Model"
         required: true
