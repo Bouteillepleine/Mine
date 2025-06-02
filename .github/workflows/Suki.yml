@@ -98,7 +98,7 @@ jobs:
             ;;
            oneplus_ace5)
              MODEL_NAME="Oneplus Ace 5"
-             ;;
+            ;;
            oneplus_ace5_pro)
             MODEL_NAME="Oneplus Ace 5 Pro"
             ;;
@@ -149,6 +149,16 @@ jobs:
          rm kernel_platform/common/android/abi_gki_protected_exports_* || echo "No protected exports!"
          rm kernel_platform/msm-kernel/android/abi_gki_protected_exports_* || echo "No protected exports!"
          
+      - name: Debug Directory Structure
+        run: |
+          cd kernel_workspace/kernel_platform
+          pwd
+          find . -name gki_defconfig
+          find . -name build.config.gki
+          ls -la common
+          ls -la common/arch/arm64/configs || echo "configs directory not found"
+          ls -la common/net/ipv4 || echo "net/ipv4 directory not found"
+
       - name: Set up SukiSU
         run: |
          cd kernel_workspace/kernel_platform
@@ -273,94 +283,99 @@ jobs:
       - name: Add SUSFS Configuration Settings
         run: |
           cd kernel_workspace/kernel_platform
-          echo "CONFIG_KSU=y" >> ./common/arch/arm64/configs/gki_defconfig
+          CONFIG_FILE="./common/arch/arm64/configs/gki_defconfig"
+          if [ ! -f "$CONFIG_FILE" ]; then
+            echo "gki_defconfig not found at $CONFIG_FILE, creating empty file"
+            mkdir -p ./common/arch/arm64/configs
+            touch "$CONFIG_FILE"
+          fi
+          echo "CONFIG_KSU=y" >> "$CONFIG_FILE"
           # Add VFS configuration settings
-          echo "CONFIG_KSU_SUSFS_SUS_SU=n" >> ./common/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_KSU_MANUAL_HOOK=y" >> ./common/arch/arm64/configs/gki_defconfig
+          echo "CONFIG_KSU_SUSFS_SUS_SU=n" >> "$CONFIG_FILE"
+          echo "CONFIG_KSU_MANUAL_HOOK=y" >> "$CONFIG_FILE"
           
           # Add SUSFS configuration settings
-          echo "CONFIG_KSU_SUSFS=y" >> ./common/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_KSU_SUSFS_HAS_MAGIC_MOUNT=y" >> ./common/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_KSU_SUSFS_SUS_PATH=y" >> ./common/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_KSU_SUSFS_SUS_MOUNT=y" >> ./common/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_KSU_SUSFS_AUTO_ADD_SUS_KSU_DEFAULT_MOUNT=y" >> ./common/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_KSU_SUSFS_AUTO_ADD_SUS_BIND_MOUNT=y" >> ./common/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_KSU_SUSFS_SUS_KSTAT=y" >> ./common/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_KSU_SUSFS_SUS_OVERLAYFS=n" >> ./common/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_KSU_SUSFS_TRY_UMOUNT=y" >> ./common/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_KSU_SUSFS_AUTO_ADD_TRY_UMOUNT_FOR_BIND_MOUNT=y" >> ./common/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_KSU_SUSFS_SPOOF_UNAME=y" >> ./common/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_KSU_SUSFS_ENABLE_LOG=y" >> ./common/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_KSU_SUSFS_HIDE_KSU_SUSFS_SYMBOLS=y" >> ./common/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_KSU_SUSFS_SPOOF_CMDLINE_OR_BOOTCONFIG=y" >> ./common/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_KSU_SUSFS_OPEN_REDIRECT=y" >> ./common/arch/arm64/configs/gki_defconfig
-
-          echo "CONFIG_TMPFS_XATTR=y" >> ./common/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_TMPFS_POSIX_ACL=y" >> ./common/arch/arm64/configs/gki_defconfig
+          echo "CONFIG_KSU_SUSFS=y" >> "$CONFIG_FILE"
+          echo "CONFIG_KSU_SUSFS_HAS_MAGIC_MOUNT=y" >> "$CONFIG_FILE"
+          echo "CONFIG_KSU_SUSFS_SUS_PATH=y" >> "$CONFIG_FILE"
+          echo "CONFIG_KSU_SUSFS_SUS_MOUNT=y" >> "$CONFIG_FILE"
+          echo "CONFIG_KSU_SUSFS_AUTO_ADD_SUS_KSU_DEFAULT_MOUNT=y" >> "$CONFIG_FILE"
+          echo "CONFIG_KSU_SUSFS_AUTO_ADD_SUS_BIND_MOUNT=y" >> "$CONFIG_FILE"
+          echo "CONFIG_KSU_SUSFS_SUS_KSTAT=y" >> "$CONFIG_FILE"
+          echo "CONFIG_KSU_SUSFS_SUS_OVERLAYFS=n" >> "$CONFIG_FILE"
+          echo "CONFIG_KSU_SUSFS_TRY_UMOUNT=y" >> "$CONFIG_FILE"
+          echo "CONFIG_KSU_SUSFS_AUTO_ADD_TRY_UMOUNT_FOR_BIND_MOUNT=y" >> "$CONFIG_FILE"
+          echo "CONFIG_KSU_SUSFS_SPOOF_UNAME=y" >> "$CONFIG_FILE"
+          echo "CONFIG_KSU_SUSFS_ENABLE_LOG=y" >> "$CONFIG_FILE"
+          echo "CONFIG_KSU_SUSFS_HIDE_KSU_SUSFS_SYMBOLS=y" >> "$CONFIG_FILE"
+          echo "CONFIG_KSU_SUSFS_SPOOF_CMDLINE_OR_BOOTCONFIG=y" >> "$CONFIG_FILE"
+          echo "CONFIG_KSU_SUSFS_OPEN_REDIRECT=y" >> "$CONFIG_FILE"
+          echo "CONFIG_TMPFS_XATTR=y" >> "$CONFIG_FILE"
+          echo "CONFIG_TMPFS_POSIX_ACL=y" >> "$CONFIG_FILE"
           
           # BBR and Network
-          echo "CONFIG_TCP_CONG_ADVANCED=y" >> ./common/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_TCP_CONG_BBR=y" >> ./common/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_DEFAULT_TCP_CONG="bbr"" >> ./common/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_TCP_CONG_CDG=y" >> ./common/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_DEFAULT_BBR=y" >> ./common/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_NET_SCH_DEFAULT=y" >> ./common/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_DEFAULT_FQ=y" >> ./common/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_DEFAULT_NET_SCH="fq"" >> ./common/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_NET_SCH_SFQ=y" >> ./common/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_NET_SCH_FQ_CODEL=y" >> ./common/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_NET_SCH_TBF=y" >> ./common/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_TCP_CONG_HTCP=y" >> ./common/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_IP_NF_TARGET_ECN=y" >> ./common/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_IP_ECN=y" >> ./common/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_TCP_ECN=y" >> ./common/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_IPV6_ECN=y" >> ./common/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_TCP_FASTOPEN=y" >> ./common/arch/arm64/configs/gki_defconfig
+          echo "CONFIG_TCP_CONG_ADVANCED=y" >> "$CONFIG_FILE"
+          echo "CONFIG_TCP_CONG_BBR=y" >> "$CONFIG_FILE"
+          echo "CONFIG_DEFAULT_TCP_CONG=\"bbr\"" >> "$CONFIG_FILE"
+          echo "CONFIG_TCP_CONG_CDG=y" >> "$CONFIG_FILE"
+          echo "CONFIG_DEFAULT_BBR=y" >> "$CONFIG_FILE"
+          echo "CONFIG_NET_SCH_DEFAULT=y" >> "$CONFIG_FILE"
+          echo "CONFIG_DEFAULT_FQ=y" >> "$CONFIG_FILE"
+          echo "CONFIG_DEFAULT_NET_SCH=\"fq\"" >> "$CONFIG_FILE"
+          echo "CONFIG_NET_SCH_SFQ=y" >> "$CONFIG_FILE"
+          echo "CONFIG_NET_SCH_FQ_CODEL=y" >> "$CONFIG_FILE"
+          echo "CONFIG_NET_SCH_TBF=y" >> "$CONFIG_FILE"
+          echo "CONFIG_TCP_CONG_HTCP=y" >> "$CONFIG_FILE"
+          echo "CONFIG_IP_NF_TARGET_ECN=y" >> "$CONFIG_FILE"
+          echo "CONFIG_IP_ECN=y" >> "$CONFIG_FILE"
+          echo "CONFIG_TCP_ECN=y" >> "$CONFIG_FILE"
+          echo "CONFIG_IPV6_ECN=y" >> "$CONFIG_FILE"
+          echo "CONFIG_TCP_FASTOPEN=y" >> "$CONFIG_FILE"
           
           # TTL Support
-          echo "CONFIG_IP_NF_TARGET_TTL=y" >> ./common/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_IP6_NF_TARGET_HL=y" >> ./common/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_IP6_NF_MATCH_HL=y" >> ./common/arch/arm64/configs/gki_defconfig
+          echo "CONFIG_IP_NF_TARGET_TTL=y" >> "$CONFIG_FILE"
+          echo "CONFIG_IP6_NF_TARGET_HL=y" >> "$CONFIG_FILE"
+          echo "CONFIG_IP6_NF_MATCH_HL=y" >> "$CONFIG_FILE"
           
           # Disable Blacklisted Modules
-          echo "CONFIG_EXT4_INODE_TEST=n" >> ./common/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_F_FS_IPC_LOG=n" >> ./common/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_HUNG_TASK_ENH=n" >> ./common/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_IIO_TEST_FORMAT=n" >> ./common/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_OPLUS_BSP_SIGKILL_DIAGNOSIS=n" >> ./common/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_OPLUS_LOCK_TORTURE=n" >> ./common/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_SOC_TOPOLOGY_TEST=n" >> ./common/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_SOC_UTILS_TEST=n" >> ./common/arch/arm64/configs/gki_defconfig
+          echo "CONFIG_EXT4_INODE_TEST=n" >> "$CONFIG_FILE"
+          echo "CONFIG_F_FS_IPC_LOG=n" >> "$CONFIG_FILE"
+          echo "CONFIG_HUNG_TASK_ENH=n" >> "$CONFIG_FILE"
+          echo "CONFIG_IIO_TEST_FORMAT=n" >> "$CONFIG_FILE"
+          echo "CONFIG_OPLUS_BSP_SIGKILL_DIAGNOSIS=n" >> "$CONFIG_FILE"
+          echo "CONFIG_OPLUS_LOCK_TORTURE=n" >> "$CONFIG_FILE"
+          echo "CONFIG_SOC_TOPOLOGY_TEST=n" >> "$CONFIG_FILE"
+          echo "CONFIG_SOC_UTILS_TEST=n" >> "$CONFIG_FILE"
           
           # Disable Debug
-          echo "CONFIG_DEBUG_KERNEL=n" >> ./common/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_DYNAMIC_DEBUG=n" >> ./common/arch/arm64/configs/gki_defconfig         
-          echo "CONFIG_DEBUG_INFO=n" >> ./common/arch/arm64/configs/gki_defconfig
-
-          # Others stuffs
-          echo "CONFIG_POWERSUSPEND=y" >> ./common/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_STATE_NOTIFIER=y" >> ./common/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_UH=y" >> ./common/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_UH_RUST=n" >> ./common/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_ADRENO_IDLER=y" >> ./common/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_ADRENO_BOOST=y" >> ./common/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_SIMPLE_GPU_ALGORITHM=n" >> ./common/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_SCHED_TUNE=y" >> ./common/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_EAS=y" >> ./common/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_SCHEDUTIL_GOV=y" >> ./common/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_UCLAMP_TASK=y" >> ./common/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_UCLAMP_TASK_GROUP=y" >> ./common/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_ANDROID_ART=y" >> ./common/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_ANDROID_ART_LOW_MEMORY=n" >> ./common/arch/arm64/configs/gki_defconfig 
-          echo "CONFIG_UFFD=y" >> ./common/arch/arm64/configs/gki_defconfig 
-          echo "CONFIG_GENERATIONAL_GC=y" >> ./common/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_ANDROID_LOW_MEMORY_KILLER=y" >> ./common/arch/arm64/configs/gki_defconfig 
-          echo "CONFIG_PSI=y" >> ./common/arch/arm64/configs/gki_defconfig 
-          echo "CONFIG_PSI_DEFAULT_DISABLED=n" >> ./common/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_DRM=y" >> ./common/arch/arm64/configs/gki_defconfig 
-          echo "CONFIG_DRM_MSM=y" >> ./common/arch/arm64/configs/gki_defconfig 
-          echo "CONFIG_DRM_ADRENO=y" >> ./common/arch/arm64/configs/gki_defconfig          
-
+          echo "CONFIG_DEBUG_KERNEL=n" >> "$CONFIG_FILE"
+          echo "CONFIG_DYNAMIC_DEBUG=n" >> "$CONFIG_FILE"         
+          echo "CONFIG_DEBUG_INFO=n" >> "$CONFIG_FILE"
+          
+          # Other stuff
+          echo "CONFIG_POWERSUSPEND=y" >> "$CONFIG_FILE"
+          echo "CONFIG_STATE_NOTIFIER=y" >> "$CONFIG_FILE"
+          echo "CONFIG_UH=y" >> "$CONFIG_FILE"
+          echo "CONFIG_UH_RUST=n" >> "$CONFIG_FILE"
+          echo "CONFIG_ADRENO_IDLER=y" >> "$CONFIG_FILE"
+          echo "CONFIG_ADRENO_BOOST=y" >> "$CONFIG_FILE"
+          echo "CONFIG_SIMPLE_GPU_ALGORITHM=n" >> "$CONFIG_FILE"
+          echo "CONFIG_SCHED_TUNE=y" >> "$CONFIG_FILE"
+          echo "CONFIG_EAS=y" >> "$CONFIG_FILE"
+          echo "CONFIG_SCHEDUTIL_GOV=y" >> "$CONFIG_FILE"
+          echo "CONFIG_UCLAMP_TASK=y" >> "$CONFIG_FILE"
+          echo "CONFIG_UCLAMP_TASK_GROUP=y" >> "$CONFIG_FILE"
+          echo "CONFIG_ANDROID_ART=y" >> "$CONFIG_FILE"
+          echo "CONFIG_ANDROID_ART_LOW_MEMORY=n" >> "$CONFIG_FILE"
+          echo "CONFIG_UFFD=y" >> "$CONFIG_FILE"
+          echo "CONFIG_GENERATIONAL_GC=y" >> "$CONFIG_FILE"
+          echo "CONFIG_ANDROID_LOW_MEMORY_KILLER=y" >> "$CONFIG_FILE"
+          echo "CONFIG_PSI=y" >> "$CONFIG_FILE"
+          echo "CONFIG_PSI_DEFAULT_DISABLED=n" >> "$CONFIG_FILE"
+          echo "CONFIG_DRM=y" >> "$CONFIG_FILE"
+          echo "CONFIG_DRM_MSM=y" >> "$CONFIG_FILE"
+          echo "CONFIG_DRM_ADRENO=y" >> "$CONFIG_FILE"
+          
           # Blacklist
           find . -name Kconfig -exec sed -i -e 's/CONFIG_EXT4_INODE_TEST=[ym]/CONFIG_EXT4_INODE_TEST=n/' \
             -e 's/CONFIG_F_FS_IPC_LOG=[ym]/CONFIG_F_FS_IPC_LOG=n/' \
@@ -418,23 +433,36 @@ jobs:
           sudo sed -i 's/check_defconfig//' "$BUILD_CONFIG"
           cd ../
           git add -A && git commit -a -m "Optimize network performance" || true
-      
+          
       - name: Add KPM Configuration Settings
         if: ${{ inputs.enable_feature_x }}
         run: |
           cd kernel_workspace/kernel_platform
-          echo "CONFIG_KPM=y" >> ./common/arch/arm64/configs/gki_defconfig
-         
-          # Remove check_defconfig
-          sudo sed -i 's/check_defconfig//' ./common/build.config.gki
+          CONFIG_FILE="./common/arch/arm64/configs/gki_defconfig"
+          BUILD_CONFIG="./common/build.config.gki"
+          if [ ! -f "$CONFIG_FILE" ]; then
+            echo "gki_defconfig not found at $CONFIG_FILE, cannot proceed"
+            exit 1
+          fi
+          if [ ! -f "$BUILD_CONFIG" ]; then
+            echo "build.config.gki not found at $BUILD_CONFIG, cannot proceed"
+            exit 1
+          fi
+          echo "CONFIG_KPM=y" >> "$CONFIG_FILE"
+          sudo sed -i 's/check_defconfig//' "$BUILD_CONFIG"
           cd common
-          git add -A && git commit -a -m "BUILD Kernel"
+          git add -A && git commit -a -m "Add KPM configuration" || true
           
       - name: Add kernel custom name
         run: |
          cd kernel_workspace/kernel_platform
+         CONFIG_FILE="./common/arch/arm64/configs/gki_defconfig"
+         if [ ! -f "$CONFIG_FILE" ]; then
+           echo "gki_defconfig not found at $CONFIG_FILE, cannot proceed"
+           exit 1
+         fi
          sed -i 's/${scm_version}//' ./common/scripts/setlocalversion
-         sudo sed -i 's/-4k/${{ inputs.KERNEL_NAME }}/g' ./common/arch/arm64/configs/gki_defconfig
+         sudo sed -i 's/-4k/${{ inputs.KERNEL_NAME }}/g' "$CONFIG_FILE"
       - name: Set Kernel build timestamp
         run: |
           export SOURCE_DATE_EPOCH=$(date -d "${{ inputs.KERNEL_TIME }}" +%s)
@@ -524,4 +552,3 @@ jobs:
            cd download
            cd ${{ env.IMG_FILE }} ; zip -r ../${{ env.IMG_FILE }}.zip . * ; cd ..
            cd ${{ env.ANYKERNEL3_FILE }} ; zip -r ../${{ env.ANYKERNEL3_FILE }}.zip . * ; cd ..
-
