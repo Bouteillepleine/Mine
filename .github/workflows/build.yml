@@ -202,306 +202,104 @@ jobs:
           
           echo "Adding configuration settings to gki_defconfig..."
           
-          echo "CONFIG_KSU=y" >> ./common/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_KSU_KPROBES_HOOK=n" >> ./common/arch/arm64/configs/gki_defconfig
+          cat << EOF >> ./common/arch/arm64/configs/gki_defconfig
+          # KernelSU and SUSFS
+          CONFIG_KSU=y
+          CONFIG_KSU_KPROBES_HOOK=n
+          CONFIG_KSU_SUSFS=y
+          CONFIG_KSU_SUSFS_HAS_MAGIC_MOUNT=y
+          CONFIG_KSU_SUSFS_SUS_PATH=y
+          CONFIG_KSU_SUSFS_SUS_MOUNT=y
+          CONFIG_KSU_SUSFS_AUTO_ADD_SUS_KSU_DEFAULT_MOUNT=y
+          CONFIG_KSU_SUSFS_AUTO_ADD_SUS_BIND_MOUNT=y
+          CONFIG_KSU_SUSFS_SUS_KSTAT=y
+          CONFIG_KSU_SUSFS_SUS_OVERLAYFS=n
+          CONFIG_KSU_SUSFS_TRY_UMOUNT=y
+          CONFIG_KSU_SUSFS_AUTO_ADD_TRY_UMOUNT_FOR_BIND_MOUNT=y
+          CONFIG_KSU_SUSFS_SPOOF_UNAME=y
+          CONFIG_KSU_SUSFS_ENABLE_LOG=y
+          CONFIG_KSU_SUSFS_HIDE_KSU_SUSFS_SYMBOLS=y
+          CONFIG_KSU_SUSFS_SPOOF_CMDLINE_OR_BOOTCONFIG=y
+          CONFIG_KSU_SUSFS_OPEN_REDIRECT=y
+          CONFIG_KSU_SUSFS_SUS_SU=n
+          CONFIG_TMPFS_XATTR=y
+          CONFIG_TMPFS_POSIX_ACL=y
           
-          echo "CONFIG_KSU_SUSFS=y" >> ./common/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_KSU_SUSFS_HAS_MAGIC_MOUNT=y" >> ./common/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_KSU_SUSFS_SUS_PATH=y" >> ./common/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_KSU_SUSFS_SUS_MOUNT=y" >> ./common/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_KSU_SUSFS_AUTO_ADD_SUS_KSU_DEFAULT_MOUNT=y" >> ./common/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_KSU_SUSFS_AUTO_ADD_SUS_BIND_MOUNT=y" >> ./common/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_KSU_SUSFS_SUS_KSTAT=y" >> ./common/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_KSU_SUSFS_SUS_OVERLAYFS=n" >> ./common/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_KSU_SUSFS_TRY_UMOUNT=y" >> ./common/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_KSU_SUSFS_AUTO_ADD_TRY_UMOUNT_FOR_BIND_MOUNT=y" >> ./common/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_KSU_SUSFS_SPOOF_UNAME=y" >> ./common/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_KSU_SUSFS_ENABLE_LOG=y" >> ./common/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_KSU_SUSFS_HIDE_KSU_SUSFS_SYMBOLS=y" >> ./common/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_KSU_SUSFS_SPOOF_CMDLINE_OR_BOOTCONFIG=y" >> ./common/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_KSU_SUSFS_OPEN_REDIRECT=y" >> ./common/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_KSU_SUSFS_SUS_SU=n" >> ./common/arch/arm64/configs/gki_defconfig
+          # BBR and Network
+          CONFIG_TCP_CONG_ADVANCED=y
+          CONFIG_TCP_CONG_BBR=y
+          CONFIG_DEFAULT_TCP_CONG="bbr"
+          CONFIG_TCP_CONG_CDG=y
+          CONFIG_DEFAULT_BBR=y
+          CONFIG_NET_SCH_DEFAULT=y
+          CONFIG_TCP_CONG_BIC=n
+          CONFIG_TCP_CONG_WESTWOOD=n
+          CONFIG_DEFAULT_FQ=y
+          CONFIG_DEFAULT_NET_SCH="fq"
+          CONFIG_NET_SCH_SFQ=y
+          CONFIG_NET_SCH_FQ_CODEL=y
+          CONFIG_NET_SCH_TBF=y
+          CONFIG_TCP_CONG_HTCP=y
+          CONFIG_IP_NF_TARGET_ECN=y
+          CONFIG_IP_ECN=y
+          CONFIG_TCP_ECN=y
+          CONFIG_IPV6_ECN=y
+          CONFIG_TCP_FASTOPEN=y
           
-          echo "CONFIG_TMPFS_XATTR=y" >> ./common/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_TMPFS_POSIX_ACL=y" >> ./common/arch/arm64/configs/gki_defconfig
+          # TTL Support
+          CONFIG_IP_NF_TARGET_TTL=y
+          CONFIG_IP6_NF_TARGET_HL=y
+          CONFIG_IP6_NF_MATCH_HL=y
+          
+          # Disable Blacklisted Modules
+          CONFIG_EXT4_INODE_TEST=n
+          CONFIG_F_FS_IPC_LOG=n
+          CONFIG_HUNG_TASK_ENH=n
+          CONFIG_IIO_TEST_FORMAT=n
+          CONFIG_OPLUS_BSP_SIGKILL_DIAGNOSIS=n
+          CONFIG_OPLUS_LOCK_TORTURE=n
+          CONFIG_SOC_TOPOLOGY_TEST=n
+          CONFIG_SOC_UTILS_TEST=n
+          
+          # Disable Debug
+          CONFIG_DEBUG_KERNEL=n
+          CONFIG_DYNAMIC_DEBUG=n
+          CONFIG_RCU_TRACE=n
+          CONFIG_DEBUG_INFO=n
 
-      - name: "😋Add BBR Support"
-        run: |
-          echo "Changing to configuration directory: $CONFIG..."
-          cd "$CONFIG/kernel_platform"
-          
-          echo "Adding configuration settings to gki_defconfig..."
-          echo "CONFIG_TCP_CONG_ADVANCED=y" >> ./common/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_TCP_CONG_BBR=y" >> ./common/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_DEFAULT_TCP_CONG=\"bbr\"" >> ./common/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_TCP_CONG_CDG=y" >> ./common/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_DEFAULT_BBR=y" >> ./common/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_NET_SCH_DEFAULT=y" >> ./common/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_TCP_CONG_BIC=n" >> ./common/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_TCP_CONG_WESTWOOD=n" >> ./common/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_DEFAULT_FQ=y" >> ./common/arch/arm64/configs/gki_defconfig
-          echo 'CONFIG_DEFAULT_NET_SCH="fq"' >> ./common/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_NET_SCH_SFQ=y" >> ./common/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_NET_SCH_FQ_CODEL=y" >> ./common/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_NET_SCH_TBF=y" >> ./common/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_TCP_CONG_HTCP=y" >> ./common/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_IP_NF_TARGET_ECN=y" >> ./common/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_IP_ECN=y" >> ./common/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_TCP_ECN=y" >> ./common/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_IPV6_ECN=y" >> ./common/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_TCP_FASTOPEN=y" >> ./common/arch/arm64/configs/gki_defconfig          
+          EOF
 
-      - name: "😋Add TTL Target Support"
-        run: |
-          echo "Changing to configuration directory: $CONFIG..."
-          cd "$CONFIG/kernel_platform"
-          
-          echo "Adding configuration settings to gki_defconfig..."
-          echo "CONFIG_IP_NF_TARGET_TTL=y" >> ./common/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_IP6_NF_TARGET_HL=y" >> ./common/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_IP6_NF_MATCH_HL=y" >> ./common/arch/arm64/configs/gki_defconfig
-
-      - name: "😋Disable blacklisted modules"
-        run: |
-          echo "Changing to configuration directory: $CONFIG..."
-          cd "$CONFIG/kernel_platform"
-          
-          echo "Cleaning gki_defconfig of blacklisted modules..."
-          sed -i '/CONFIG_EXT4_INODE_TEST=/d' ./common/arch/arm64/configs/gki_defconfig
-          sed -i '/CONFIG_F_FS_IPC_LOG=/d' ./common/arch/arm64/configs/gki_defconfig
-          sed -i '/CONFIG_HUNG_TASK_ENH=/d' ./common/arch/arm64/configs/gki_defconfig
-          sed -i '/CONFIG_IIO_TEST_FORMAT=/d' ./common/arch/arm64/configs/gki_defconfig          
-          sed -i '/CONFIG_OPLUS_BSP_SIGKILL_DIAGNOSIS=/d' ./common/arch/arm64/configs/gki_defconfig
-          sed -i '/CONFIG_OPLUS_LOCK_TORTURE=/d' ./common/arch/arm64/configs/gki_defconfig
-          sed -i '/CONFIG_SOC_TOPOLOGY_TEST=/d' ./common/arch/arm64/configs/gki_defconfig
-          sed -i '/CONFIG_SOC_UTILS_TEST=/d' ./common/arch/arm64/configs/gki_defconfig
-          
-          echo "Disabling blacklisted modules in gki_defconfig..."
-          echo "CONFIG_EXT4_INODE_TEST=n" >> ./common/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_F_FS_IPC_LOG=n" >> ./common/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_HUNG_TASK_ENH=n" >> ./common/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_IIO_TEST_FORMAT=n" >> ./common/arch/arm64/configs/gki_defconfig          
-          echo "CONFIG_OPLUS_BSP_SIGKILL_DIAGNOSIS=n" >> ./common/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_OPLUS_LOCK_TORTURE=n" >> ./common/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_SOC_TOPOLOGY_TEST=n" >> ./common/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_SOC_UTILS_TEST=n" >> ./common/arch/arm64/configs/gki_defconfig
-
-      - name: "🎶Patch Kconfig to Disable Blacklisted Modules"
-        run: |
-          echo "Patching Kconfig files to disable blacklisted modules..."
-          cd "$CONFIG/kernel_platform"
-          find . -name Kconfig -exec sed -i 's/CONFIG_EXT4_INODE_TEST=[ym]/CONFIG_EXT4_INODE_TEST=n/' {} \; || true
-          find . -name Kconfig -exec sed -i 's/CONFIG_F_FS_IPC_LOG=[ym]/CONFIG_F_FS_IPC_LOG=n/' {} \; || true
-          find . -name Kconfig -exec sed -i 's/CONFIG_HUNG_TASK_ENH=[ym]/CONFIG_HUNG_TASK_ENH=n/' {} \; || true
-          find . -name Kconfig -exec sed -i 's/CONFIG_IIO_TEST_FORMAT=[ym]/CONFIG_IIO_TEST_FORMAT=n/' {} \; || true        
-          find . -name Kconfig -exec sed -i 's/CONFIG_OPLUS_BSP_SIGKILL_DIAGNOSIS=[ym]/CONFIG_OPLUS_BSP_SIGKILL_DIAGNOSIS=n/' {} \; || true
-          find . -name Kconfig -exec sed -i 's/CONFIG_OPLUS_LOCK_TORTURE=[ym]/CONFIG_OPLUS_LOCK_TORTURE=n/' {} \; || true
-          find . -name Kconfig -exec sed -i 's/CONFIG_SOC_TOPOLOGY_TEST=[ym]/CONFIG_SOC_TOPOLOGY_TEST=n/' {} \; || true
-          find . -name Kconfig -exec sed -i 's/CONFIG_SOC_UTILS_TEST=[ym]/CONFIG_SOC_UTILS_TEST=n/' {} \; || true
-                
-      - name: "🎶Disable Debug stuffs"
-        run: |
-          echo "Changing to configuration directory: $CONFIG..."
-          cd "$CONFIG/kernel_platform"
-          
-          echo "CONFIG_DEBUG_KERNEL=n" >> ./common/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_DYNAMIC_DEBUG=n" >> ./common/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_RCU_TRACE=n" >> ./common/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_DEBUG_INFO=n" >> ./common/arch/arm64/configs/gki_defconfig
-
-      - name: "🔍Debug Directory Structure"
-        if: ${{ inputs.kernel_version == '6.6' || inputs.kernel_version == '6.1' }}
-        run: |
-          echo "Listing directory structure for $CONFIG/kernel_platform..."
-          ls -R "$CONFIG/kernel_platform" || echo "Directory $CONFIG/kernel_platform not found"
-          if [ -d "$CONFIG/kernel_platform/common/net/ipv4" ]; then
-            echo "Contents of $CONFIG/kernel_platform/common/net/ipv4:"
-            ls "$CONFIG/kernel_platform/common/net/ipv4"
-          else
-            echo "Directory $CONFIG/kernel_platform/common/net/ipv4 does not exist"
-          fi
-
-      - name: "🔍Debug Kernel Config"
-        run: |
-          echo "Checking gki_defconfig contents..."
-          cat "$CONFIG/kernel_platform/common/arch/arm64/configs/gki_defconfig" || echo "gki_defconfig not found"
-          grep -E "CONFIG_KSU=|CONFIG_TCP_CONG_BBR=|CONFIG_TMPFS_POSIX_ACL=" "$CONFIG/kernel_platform/common/arch/arm64/configs/gki_defconfig" || echo "Key configs not found"
+          # Blacklist
+          find . -name Kconfig -exec sed -i -e 's/CONFIG_EXT4_INODE_TEST=[ym]/CONFIG_EXT4_INODE_TEST=n/' \
+            -e 's/CONFIG_F_FS_IPC_LOG=[ym]/CONFIG_F_FS_IPC_LOG=n/' \
+            -e 's/CONFIG_HUNG_TASK_ENH=[ym]/CONFIG_HUNG_TASK_ENH=n/' \
+            -e 's/CONFIG_IIO_TEST_FORMAT=[ym]/CONFIG_IIO_TEST_FORMAT=n/' \
+            -e 's/CONFIG_OPLUS_BSP_SIGKILL_DIAGNOSIS=[ym]/CONFIG_OPLUS_BSP_SIGKILL_DIAGNOSIS=n/' \
+            -e 's/CONFIG_OPLUS_LOCK_TORTURE=[ym]/CONFIG_OPLUS_LOCK_TORTURE=n/' \
+            -e 's/CONFIG_SOC_TOPOLOGY_TEST=[ym]/CONFIG_SOC_TOPOLOGY_TEST=n/' \
+            -e 's/CONFIG_SOC_UTILS_TEST=[ym]/CONFIG_SOC_UTILS_TEST=n/' {} \;
 
       - name: "💫Optimize Network Performance"
         if: ${{ inputs.kernel_version == '6.6' || inputs.kernel_version == '6.1' }}
         run: |
-          # Define variables
-          KERNEL_DIR="${CONFIG}/kernel_platform/common/net/ipv4"
-          ANYKERNEL_DIR="${GITHUB_WORKSPACE}/AnyKernel3"
-          SYSCTL_CONF="${ANYKERNEL_DIR}/sysctl.conf"
+          cd "$KERNEL_DIR/common/net/ipv4"
+          cp tcp_ipv4.c tcp_ipv4.c.bak
+          cp sysctl_net_ipv4.c sysctl_net_ipv4.c.bak
+          
+          # Configure ECN
+          sed -i 's/net->ipv4.sysctl_tcp_ecn = 2;/net->ipv4.sysctl_tcp_ecn = 2;/' tcp_ipv4.c
+          sed -i 's/net->ipv4.sysctl_tcp_ecn_fallback = 1;/net->ipv4.sysctl_tcp_ecn_fallback = 1;/' tcp_ipv4.c
+          sed -i '/\.procname[[:space:]]*=[[:space:]]*"tcp_ecn"/, /^[[:space:]]*\}/ s/SYSCTL_TWO/SYSCTL_TWO/' sysctl_net_ipv4.c
+          sed -i '/\.procname[[:space:]]*=[[:space:]]*"tcp_ecn_fallback"/, /^[[:space:]]*\}/ s/SYSCTL_ONE/SYSCTL_ONE/' sysctl_net_ipv4.c
+          
+          # Configure TCP pacing
           NETWORK_TYPE="${NETWORK_TYPE:-lan}"
-
-          # Validate directory
-          if [ ! -d "$KERNEL_DIR" ]; then
-            echo "Error: Directory $KERNEL_DIR does not exist"
-            exit 1
-          fi
-          cd "$KERNEL_DIR" || exit 1
-
-          # Backup files
-          cp tcp_ipv4.c tcp_ipv4.c.bak 2>/dev/null || echo "Warning: Failed to backup tcp_ipv4.c"
-          cp sysctl_net_ipv4.c sysctl_net_ipv4.c.bak 2>/dev/null || echo "Warning: Failed to backup sysctl_net_ipv4.c"
-
-          # Function to configure ECN
-          configure_ecn() {
-            sed -i 's/net->ipv4.sysctl_tcp_ecn = 2;/net->ipv4.sysctl_tcp_ecn = 2;/' tcp_ipv4.c || {
-              echo "Error: Failed to modify sysctl_tcp_ecn"
-              return 1
-            }
-            sed -i 's/net->ipv4.sysctl_tcp_ecn_fallback = 1;/net->ipv4.sysctl_tcp_ecn_fallback = 1;/' tcp_ipv4.c || {
-              echo "Error: Failed to modify sysctl_tcp_ecn_fallback"
-              return 1
-            }
-            sed -i '/\.procname[[:space:]]*=[[:space:]]*"tcp_ecn"/, /^[[:space:]]*\}/ s/SYSCTL_TWO/SYSCTL_TWO/' sysctl_net_ipv4.c || {
-              echo "Error: Failed to modify sysctl_net_ipv4.c for tcp_ecn"
-              return 1
-            }
-            sed -i '/\.procname[[:space:]]*=[[:space:]]*"tcp_ecn_fallback"/, /^[[:space:]]*\}/ s/SYSCTL_ONE/SYSCTL_ONE/' sysctl_net_ipv4.c || {
-              echo "Error: Failed to modify sysctl_net_ipv4.c for tcp_ecn_fallback"
-              return 1
-            }
-            grep "sysctl_tcp_ecn" tcp_ipv4.c
-            grep -A6 '\.procname.*tcp_ecn' sysctl_net_ipv4.c
-            grep -A6 '\.procname.*tcp_ecn_fallback' sysctl_net_ipv4.c
-          }
-
-          # Function to configure TCP pacing
-          configure_pacing() {
-            local ss_ratio=175
-            local ca_ratio=115
-            [ "$NETWORK_TYPE" = "wan" ] && ss_ratio=180 && ca_ratio=120
-            sed -i "s/net->ipv4.sysctl_tcp_pacing_ss_ratio = 200;/net->ipv4.sysctl_tcp_pacing_ss_ratio = $ss_ratio;/" tcp_ipv4.c || {
-              echo "Error: Failed to modify sysctl_tcp_pacing_ss_ratio"
-              return 1
-            }
-            sed -i "s/net->ipv4.sysctl_tcp_pacing_ca_ratio = 120;/net->ipv4.sysctl_tcp_pacing_ca_ratio = $ca_ratio;/" tcp_ipv4.c || {
-              echo "Error: Failed to modify sysctl_tcp_pacing_ca_ratio"
-              return 1
-            }
-            grep "sysctl_tcp_pacing" tcp_ipv4.c
-          }
-
-          # Function to configure sysctl settings (saved to AnyKernel3)
-          configure_sysctl() {
-            mkdir -p "$ANYKERNEL_DIR" || {
-              echo "Error: Failed to create $ANYKERNEL_DIR"
-              return 1
-            }
-            cat << EOF > "$SYSCTL_CONF"
-          net.ipv4.tcp_rmem = 4096 87380 6291456
-          net.ipv4.tcp_wmem = 4096 16384 4194304
-          net.core.rmem_max = 6291456
-          net.core.wmem_max = 4194304
-          net.ipv4.tcp_window_scaling = 1
-          net.ipv4.tcp_fastopen = 3
-          net.ipv4.tcp_mtu_probing = 1
-          net.ipv4.tcp_low_latency = 1
-          net.ipv4.tcp_early_retrans = 3
-          net.ipv4.tcp_thin_linear_timeouts = 1
-          net.core.netdev_max_backlog = 5000
-          net.ipv4.tcp_congestion_control = $( [ "$NETWORK_TYPE" = "wan" ] && echo "bbr" || echo "cubic" )
-          EOF
-            echo "Sysctl settings saved to $SYSCTL_CONF"
-          }
-
-          # Function to configure network interface (for documentation, applied on target device)
-          configure_interface() {
-            cat << EOF >> "$SYSCTL_CONF"
-          # Apply on target device with:
-          # ethtool -C <interface> rx-usecs 100 rx-frames 25
-          # ethtool -C <interface> tx-usecs 100 tx-frames 25
-          # ethtool -K <interface> gro on
-          # Benchmark on target device with:
-          # iperf3 -c <server_ip> -t 10 -P 4
-          EOF
-            echo "Interface tuning instructions added to $SYSCTL_CONF"
-          }
-
-          # Verify function existence
-          if ! declare -f configure_interface > /dev/null; then
-            echo "Error: configure_interface function not defined"
-            exit 1
-          fi
-
-          # Execute configurations
-          configure_ecn || { echo "Error: ECN configuration failed"; exit 1; }
-          configure_pacing || { echo "Error: Pacing configuration failed"; exit 1; }
-          configure_sysctl || { echo "Error: Sysctl configuration failed"; exit 1; }
-          configure_interface || { echo "Error: Interface configuration failed"; exit 1; }
-
-          # List modified files
-          ls -t | grep -E 'tcp_|sysctl_' || echo "Warning: No matching files found"
-
-          echo "Network optimizations applied successfully"
-
-      - name: "⚙️Configure AnyKernel3 to Apply Network Settings"
-        run: |
-          ANYKERNEL_DIR="${GITHUB_WORKSPACE}/AnyKernel3"
-          ANYKERNEL_SCRIPT="${ANYKERNEL_DIR}/anykernel.sh"
-
-          # Check if anykernel.sh exists
-          if [ ! -f "$ANYKERNEL_SCRIPT" ]; then
-            echo "Error: $ANYKERNEL_SCRIPT not found"
-            exit 1
-          fi
-
-          # Backup anykernel.sh
-          cp "$ANYKERNEL_SCRIPT" "$ANYKERNEL_SCRIPT.bak"
-
-          # Add commands to apply sysctl and ethtool settings
-          cat << 'EOF' >> "$ANYKERNEL_SCRIPT"
-
-          # Apply network configurations
-          ui_print "- Applying network configurations"
-          write_boot
-          if [ -f "$AKHOME/sysctl.conf" ]; then
-            $BOOTMODE && ui_print "  Copying sysctl.conf to /system/etc/sysctl.d/"
-            mkdir -p /system/etc/sysctl.d
-            cp "$AKHOME/sysctl.conf" /system/etc/sysctl.d/99-network.conf
-            chmod 644 /system/etc/sysctl.d/99-network.conf
-            if command -v sysctl >/dev/null 2>&1; then
-              sysctl -p /system/etc/sysctl.d/99-network.conf >/dev/null 2>&1 && ui_print "  Sysctl settings applied" || ui_print "  Warning: Failed to apply sysctl settings"
-            else
-              ui_print "  Warning: sysctl binary not found, settings will apply on boot"
-            fi
-          else
-            ui_print "  Error: sysctl.conf not found in ZIP root"
-          fi
-
-          # Apply ethtool settings
-          INTERFACE=$(ip link | grep -E 'wlan0|rmnet0' | awk '{print $2}' | cut -d':' -f1 | head -n1)
-          if [ -n "$INTERFACE" ] && command -v ethtool >/dev/null 2>&1; then
-            ethtool -C "$INTERFACE" rx-usecs 100 rx-frames 25 >/dev/null 2>&1 && ui_print "  Applied ethtool rx settings to $INTERFACE" || ui_print "  Warning: Failed to apply ethtool rx settings"
-            ethtool -C "$INTERFACE" tx-usecs 100 tx-frames 25 >/dev/null 2>&1 && ui_print "  Applied ethtool tx settings to $INTERFACE" || ui_print "  Warning: Failed to apply ethtool tx settings"
-            ethtool -K "$INTERFACE" gro on >/dev/null 2>&1 && ui_print "  Enabled GRO on $INTERFACE" || ui_print "  Warning: Failed to enable GRO"
-          else
-            ui_print "  Warning: ethtool or network interface not found, skipping interface tuning"
-          fi
-
-          # Create startup script for persistent ethtool settings
-          mkdir -p /data/adb/service.d
-          cat << EOT > /data/adb/service.d/network_tune.sh
-          #!/system/bin/sh
-          # Wait for network interface
-          sleep 5
-          INTERFACE=\$(ip link | grep -E 'wlan0|rmnet0' | awk '{print \$2}' | cut -d':' -f1 | head -n1)
-          if [ -n "\$INTERFACE" ] && command -v ethtool >/dev/null 2>&1; then
-            ethtool -C "\$INTERFACE" rx-usecs 100 rx-frames 25
-            ethtool -C "\$INTERFACE" tx-usecs 100 tx-frames 25
-            ethtool -K "\$INTERFACE" gro on
-          fi
-          EOT
-          chmod 755 /data/adb/service.d/network_tune.sh
-          ui_print "  Created startup script for persistent network settings"
-          EOF
-
-          echo "Updated $ANYKERNEL_SCRIPT to apply network configurations"
-
+          ss_ratio=175
+          ca_ratio=115
+          [ "$NETWORK_TYPE" = "wan" ] && ss_ratio=180 && ca_ratio=120
+          sed -i "s/net->ipv4.sysctl_tcp_pacing_ss_ratio = 200;/net->ipv4.sysctl_tcp_pacing_ss_ratio = $ss_ratio;/" tcp_ipv4.c
+          sed -i "s/net->ipv4.sysctl_tcp_pacing_ca_ratio = 120;/net->ipv4.sysctl_tcp_pacing_ca_ratio = $ca_ratio;/" tcp_ipv4.c    
+      
       - name: "🐂Integrate Sched Ext"
         if: ${{ inputs.kernel_version == '6.6' }}
         run: |
@@ -597,7 +395,7 @@ jobs:
           
           echo "Copying Image"
           cp ./out/dist/Image ../AnyKernel3/Image
-          if [ "${{ inputs.model }}" == "OP13r" ]; then
+          if [ "${{ inputs.model }}" == "OPAce5Pro" ]; then
             cp ./out/dist/dtbo.img ../AnyKernel3/
             cp ./out/dist/system_dlkm.erofs.img ../AnyKernel3/system_dlkm.img
           fi
@@ -618,7 +416,7 @@ jobs:
           echo "Creating zip file $ZIP_NAME..."
           zip -r "../$ZIP_NAME" ./*
           # Fengchi Patch for OP13r
-          if [ "${{ inputs.model }}" == ""OPAce5Pro" ]; then
+          if [ "${{ inputs.model }}" == "OPAce5Pro" ]; then
             sed -i 's/hmbird/xxbird/g' dtbo.img
             zip -r "../$ZIP_NAME-CN-version.zip" ./*
           fi
