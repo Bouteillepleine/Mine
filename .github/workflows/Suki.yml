@@ -200,7 +200,7 @@ jobs:
            echo "Completed"
            
       - name: Apply HMBird GKI patch
-        if: ${{ inputs.FEIL != 'oneplus_13r' }}
+      # if: ${{ inputs.FEIL != 'oneplus_13r' }}
         run: |
          cd kernel_workspace/kernel_platform/common/drivers
          cat << 'EOF' > hmbird_patch.c
