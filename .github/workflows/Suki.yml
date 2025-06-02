@@ -21,6 +21,9 @@ jobs:
            oneplus_13t)
             MODEL_NAME="OnePlus 13T"
             ;;
+           oneplus_13r)
+            MODEL_NAME="OnePlus 13R"
+            ;;
            oneplus_ace5)
             MODEL_NAME="OnePlus Ace 5"
             ;;
@@ -48,8 +51,8 @@ jobs:
           
       - name: Configure Git
         run: |
-         git config --global user.name "giang"
-         git config --global user.email "dasklney@giang.us"
+         git config --global user.name "O+builder"
+         git config --global user.email "O+builder@yahoo.com"
       - name: Install dependencies
         run: |
          sudo apt update && sudo apt upgrade -y
@@ -69,7 +72,7 @@ jobs:
       - name: Initialize repo and sync
         run: |
          mkdir kernel_workspace && cd kernel_workspace
-         repo init -u https://github.com/giang/kernel_manifest.git -b refs/heads/oneplus/${{ inputs.CPU }} -m ${{ inputs.FEIL }}.xml --depth=1
+         repo init -u https://github.com/OnePlusOSS/kernel_manifest.git -b refs/heads/oneplus/${{ inputs.CPU }} -m ${{ inputs.FEIL }}.xml --depth=1
          repo --trace sync -c -j$(nproc --all) --no-tags
          rm kernel_platform/common/android/abi_gki_protected_exports_* || echo "No protected exports!"
          rm kernel_platform/msm-kernel/android/abi_gki_protected_exports_* || echo "No protected exports!"
@@ -114,7 +117,7 @@ jobs:
            patch -p1 -F 3 < syscall_hooks.patch
            echo "Completed"
       - name: Apply HMBird GKI patch
-        if: ${{ inputs.FEIL != 'oneplus_ace5' }}
+        if: ${{ inputs.FEIL != 'oneplus_13r' }}
         run: |
          cd kernel_workspace/kernel_platform/common/drivers
          cat << 'EOF' > hmbird_patch.c
@@ -335,33 +338,4 @@ jobs:
            cd download
            cd ${{ env.IMG_FILE }} ; zip -r ../${{ env.IMG_FILE }}.zip . * ; cd ..
            cd ${{ env.ANYKERNEL3_FILE }} ; zip -r ../${{ env.ANYKERNEL3_FILE }}.zip . * ; cd ..
-      - name: 🧧 Create GitHub Release
-        env:
-          IMG_FILE: "${{ inputs.FEIL }}_Image_SukiSU_Ultra_${{ env.KSUVER }}_${{ inputs.ANDROID_VERSION }}_${{ inputs.KERNEL_VERSION }}-${{ env.BUILDDATE }}"
-          ANYKERNEL3_FILE: "${{ inputs.FEIL }}_SukiSU_Ultra_${{ env.KSUVER }}_${{ inputs.ANDROID_VERSION }}_${{ inputs.KERNEL_VERSION }}-${{ env.BUILDDATE }}"
-          RELEASE_NAME: "${{ env.FEIL_NAME }} Kernel - GKI/SukiSU Ultra/SUSFS"
-          RELEASE_NOTES: |
-           This release contains SukiSU Ultra and SUSFS for ${{ env.FEIL_NAME }}
-           
-           Features:
-           -> SukiSU Ultra | KPM | LZ4KD | Fengchi
-           -> SUSFS ඞ
-           -> Manual Hooks for Better Hiding
-           
-           Notes:
-           -> SUS SU Mode 2 will show as disabled or not compatible due to non-kprobe hooks and is not needed anymore!
-           -> Kernel Flasher is broken with latest SUSFS, try https://github.com/libxzr/HorizonKernelFlasher!
-           
-           Module:
-           -> SukiSU Ultra Manager v3.1.3: https://github.com/SukiSU-Ultra/SukiSU-Ultra/releases/download/v3.1.3/SukiSU_v3.1.3_12905-release.apk
-           -> SUSFS Module: https://github.com/sidex15/ksu_module_susfs
-        continue-on-error: true
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: ${{ inputs.FEIL }}-SukiSU_Ultra-v${{ env.BUILDDATE }}.${{ github.run_number }}
-          files: |
-            download/*.zip
-            download/*.img
-          generate_release_notes: true
-          name: ${{ env.RELEASE_NAME }}
-          body: ${{ env.RELEASE_NOTES }}
+
