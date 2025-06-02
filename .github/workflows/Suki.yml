@@ -119,17 +119,7 @@ jobs:
           remove-dotnet: 'true'
           remove-android: 'true'
           remove-haskell: 'true'
-          remove-codeql: 'true'
-          
-      - name: Maximize build space
-        uses: easimon/maximize-build-space@master
-        with:
-          root-reserve-mb: 8192
-          temp-reserve-mb: 2048
-          remove-dotnet: 'true'
-          remove-android: 'true'
-          remove-haskell: 'true'
-          remove-codeql: 'true'
+          remove-codeql: 'true'                
           
       - name: Configure Git
         run: |
@@ -435,7 +425,7 @@ jobs:
       - name: Build Kernel
         run: |
           MODEL="${{ inputs.FEIL }}"
-          if [[ "$MODEL" != "oneplus_ace5" ]]; then
+          if [[ "$MODEL" != "oneplus_13r" ]]; then
             export KBUILD_BUILD_TIMESTAMP="${{ github.event.inputs.KERNEL_TIME }}"
             export PATH="$GITHUB_WORKSPACE/kernel_workspace/kernel_platform/prebuilts/clang/host/linux-x86/clang-r510928/bin:$PATH"
             export PATH="/usr/lib/ccache:$PATH"
@@ -451,7 +441,7 @@ jobs:
       - name: Apply Linux Patch
         run: |
          MODEL="${{ inputs.FEIL }}"
-         if [[ "$MODEL" != "oneplus_ace5" ]]; then
+         if [[ "$MODEL" != "oneplus_13r" ]]; then
             cd kernel_workspace/kernel_platform/common/out/arch/arm64/boot
          else
             cd kernel_workspace/kernel_platform/dist/
@@ -471,7 +461,7 @@ jobs:
          rm -rf ./AnyKernel3/.git
          rm -rf ./AnyKernel3/push.sh
          MODEL="${{ inputs.FEIL }}"
-         if [[ "$MODEL" != "oneplus_ace5" ]]; then
+         if [[ "$MODEL" != "oneplus_13r" ]]; then
             cp kernel_workspace/kernel_platform/common/out/arch/arm64/boot/Image ./AnyKernel3/
          else
             cp kernel_workspace/kernel_platform/dist/Image ./AnyKernel3/
@@ -485,8 +475,8 @@ jobs:
          name: ${{ env.ANYKERNEL3_FILE }}
          path: ./AnyKernel3/*
         
-      - name: Upload Image (Ace 5)
-        if: ${{ inputs.FEIL == 'oneplus_ace5' }}
+      - name: Upload Image (13R)
+        if: ${{ inputs.FEIL == 'oneplus_13r' }}
         env:
           IMG_FILE: "${{ inputs.FEIL }}_Image_SukiSU_Ultra_${{ env.KSUVER }}_${{ inputs.ANDROID_VERSION }}_${{ inputs.KERNEL_VERSION }}-${{ env.BUILDDATE }}"
         uses: actions/upload-artifact@v4
