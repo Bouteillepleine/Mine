@@ -263,9 +263,22 @@ jobs:
           
           # Disable Debug
           CONFIG_DEBUG_KERNEL=n
-          CONFIG_DYNAMIC_DEBUG=n
-          CONFIG_RCU_TRACE=n
+          CONFIG_DYNAMIC_DEBUG=n          
           CONFIG_DEBUG_INFO=n
+
+          # Others stuffs
+          CONFIG_POWERSUSPEND=y
+          CONFIG_STATE_NOTIFIER=y
+          CONFIG_UH=y
+          CONFIG_UH_RUST=n
+          CONFIG_ADRENO_IDLER=y
+          CONFIG_ADRENO_BOOST=y
+          CONFIG_SIMPLE_GPU_ALGORITHM=n
+          CONFIG_SCHED_TUNE=y
+          CONFIG_EAS=y
+          CONFIG_SCHEDUTIL_GOV=y
+          CONFIG_UCLAMP_TASK=y
+          CONFIG_UCLAMP_TASK_GROUP=y
 
           EOF
 
@@ -282,9 +295,7 @@ jobs:
       - name: "💫Optimize Network Performance"
         if: ${{ inputs.kernel_version == '6.6' || inputs.kernel_version == '6.1' }}
         run: |
-          cd "$KERNEL_DIR/common/net/ipv4"
-          cp tcp_ipv4.c tcp_ipv4.c.bak
-          cp sysctl_net_ipv4.c sysctl_net_ipv4.c.bak
+          cd "$CONFIG/kernel_platform/common/net/ipv4"
           
           # Configure ECN
           sed -i 's/net->ipv4.sysctl_tcp_ecn = 2;/net->ipv4.sysctl_tcp_ecn = 2;/' tcp_ipv4.c
@@ -298,8 +309,8 @@ jobs:
           ca_ratio=115
           [ "$NETWORK_TYPE" = "wan" ] && ss_ratio=180 && ca_ratio=120
           sed -i "s/net->ipv4.sysctl_tcp_pacing_ss_ratio = 200;/net->ipv4.sysctl_tcp_pacing_ss_ratio = $ss_ratio;/" tcp_ipv4.c
-          sed -i "s/net->ipv4.sysctl_tcp_pacing_ca_ratio = 120;/net->ipv4.sysctl_tcp_pacing_ca_ratio = $ca_ratio;/" tcp_ipv4.c    
-      
+          sed -i "s/net->ipv4.sysctl_tcp_pacing_ca_ratio = 120;/net->ipv4.sysctl_tcp_pacing_ca_ratio = $ca_ratio;/" tcp_ipv4.c
+
       - name: "🐂Integrate Sched Ext"
         if: ${{ inputs.kernel_version == '6.6' }}
         run: |
