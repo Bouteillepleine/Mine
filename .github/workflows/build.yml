@@ -228,25 +228,17 @@ jobs:
           # BBR and Network
           CONFIG_TCP_CONG_ADVANCED=y
           CONFIG_TCP_CONG_BBR=y
-          CONFIG_DEFAULT_TCP_CONG="bbr"
-          CONFIG_TCP_CONG_CDG=y
-          CONFIG_DEFAULT_BBR=y
-          CONFIG_NET_SCH_DEFAULT=y
-          CONFIG_DEFAULT_FQ=y
-          CONFIG_DEFAULT_NET_SCH="fq"
-          CONFIG_DEFAULT_CUBIC=n"
-          CONFIG_DEFAULT_CDG=n"
-          CONFIG_NET_SCH_SFQ=y
           CONFIG_TCP_CONG_BIC=n
-          CONFIG_TCP_CONG_WESTWOOD=n
+          CONFIG_TCP_CONG_WESTWOOD=n          
+          CONFIG_NET_SCH_FQ=y
           CONFIG_NET_SCH_FQ_CODEL=y
-          CONFIG_NET_SCH_TBF=y
-          CONFIG_TCP_CONG_HTCP=y
+          CONFIG_IP_ECN=y 
+          CONFIG_TCP_ECN=y
+          CONFIG_IPV6_ECN=y
           CONFIG_IP_NF_TARGET_ECN=y
           CONFIG_IP_ECN=y
           CONFIG_TCP_ECN=y
-          CONFIG_IPV6_ECN=y
-          CONFIG_TCP_FASTOPEN=y
+          CONFIG_IPV6_ECN=y         
           
           # TTL Support
           CONFIG_IP_NF_TARGET_TTL=y
@@ -278,26 +270,7 @@ jobs:
             -e 's/CONFIG_OPLUS_BSP_SIGKILL_DIAGNOSIS=[ym]/CONFIG_OPLUS_BSP_SIGKILL_DIAGNOSIS=n/' \
             -e 's/CONFIG_OPLUS_LOCK_TORTURE=[ym]/CONFIG_OPLUS_LOCK_TORTURE=n/' \
             -e 's/CONFIG_SOC_TOPOLOGY_TEST=[ym]/CONFIG_SOC_TOPOLOGY_TEST=n/' \
-            -e 's/CONFIG_SOC_UTILS_TEST=[ym]/CONFIG_SOC_UTILS_TEST=n/' {} \;
-
-      - name: "💫Optimize Network Performance"
-        if: ${{ inputs.kernel_version == '6.6' || inputs.kernel_version == '6.1' }}
-        run: |
-          cd "$CONFIG/kernel_platform/common/net/ipv4"
-          
-          # Configure ECN
-          sed -i 's/net->ipv4.sysctl_tcp_ecn = 2;/net->ipv4.sysctl_tcp_ecn = 2;/' tcp_ipv4.c
-          sed -i 's/net->ipv4.sysctl_tcp_ecn_fallback = 1;/net->ipv4.sysctl_tcp_ecn_fallback = 1;/' tcp_ipv4.c
-          sed -i '/\.procname[[:space:]]*=[[:space:]]*"tcp_ecn"/, /^[[:space:]]*\}/ s/SYSCTL_TWO/SYSCTL_TWO/' sysctl_net_ipv4.c
-          sed -i '/\.procname[[:space:]]*=[[:space:]]*"tcp_ecn_fallback"/, /^[[:space:]]*\}/ s/SYSCTL_ONE/SYSCTL_ONE/' sysctl_net_ipv4.c
-          
-          # Configure TCP pacing
-          NETWORK_TYPE="${NETWORK_TYPE:-lan}"
-          ss_ratio=175
-          ca_ratio=115
-          [ "$NETWORK_TYPE" = "wan" ] && ss_ratio=180 && ca_ratio=120
-          sed -i "s/net->ipv4.sysctl_tcp_pacing_ss_ratio = 200;/net->ipv4.sysctl_tcp_pacing_ss_ratio = $ss_ratio;/" tcp_ipv4.c
-          sed -i "s/net->ipv4.sysctl_tcp_pacing_ca_ratio = 120;/net->ipv4.sysctl_tcp_pacing_ca_ratio = $ca_ratio;/" tcp_ipv4.c
+            -e 's/CONFIG_SOC_UTILS_TEST=[ym]/CONFIG_SOC_UTILS_TEST=n/' {} \;      
 
       - name: "🐂Integrate Sched Ext"
         if: ${{ inputs.kernel_version == '6.6' }}
