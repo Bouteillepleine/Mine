@@ -374,22 +374,28 @@ jobs:
           # TMPFS
           echo "CONFIG_TMPFS_XATTR=y" >> "$CONFIG_FILE"
           echo "config CONFIG_TMPFS_POSIX_ACL=y" >> "$CONFIG_FILE"
-          # BBR and Network
-           # Add BBR Config
-          echo "CONFIG_TCP_CONG_ADVANCED=y" >> "$CONFIG_FILE" 
+          # BBR and Network Configurations
+          echo "CONFIG_TCP_CONG_ADVANCED=y" >> "$CONFIG_FILE"
           echo "CONFIG_TCP_CONG_BBR=y" >> "$CONFIG_FILE"
+          echo "CONFIG_DEFAULT_BBR=y" >> "$CONFIG_FILE"
           echo "CONFIG_TCP_CONG_BIC=n" >> "$CONFIG_FILE"
           echo "CONFIG_TCP_CONG_WESTWOOD=n" >> "$CONFIG_FILE"
-          echo "CONFIG_TCP_CONG_HTCP=n" >> "$CONFIG_FILE"
+          echo "CONFIG_TCP_CONG_HTCP=n" >> "$CONFIG_FILE"  # Consistent setting
+          echo "CONFIG_TCP_CONG_CDG=y" >> "$CONFIG_FILE"  # Disable CDG to prioritize BBR
+           echo "CONFIG_TCP_CONG_DCTCP" >> "$CONFIG_FILE"
           echo "CONFIG_NET_SCH_FQ=y" >> "$CONFIG_FILE"
           echo "CONFIG_NET_SCH_FQ_CODEL=y" >> "$CONFIG_FILE"
+          echo "CONFIG_NET_SCH_SFQ=y" >> "$CONFIG_FILE"
+          echo "CONFIG_NET_SCH_TBF=y" >> "$CONFIG_FILE"
           echo "CONFIG_IP_ECN=y" >> "$CONFIG_FILE"
           echo "CONFIG_TCP_ECN=y" >> "$CONFIG_FILE"
           echo "CONFIG_IPV6_ECN=y" >> "$CONFIG_FILE"
-          # TTL Support
+          echo "CONFIG_IP_NF_TARGET_ECN=y" >> "$CONFIG_FILE"
+          echo "CONFIG_TCP_FASTOPEN=y" >> "$CONFIG_FILE"
           echo "CONFIG_IP_NF_TARGET_TTL=y" >> "$CONFIG_FILE"
           echo "CONFIG_IP6_NF_TARGET_HL=y" >> "$CONFIG_FILE"
           echo "CONFIG_IP6_NF_MATCH_HL=y" >> "$CONFIG_FILE"
+          
           # Disable Blacklisted Modules
           echo "CONFIG_EXT4_INODE_TEST=n" >> "$CONFIG_FILE"
           echo "CONFIG_F_FS_IPC_LOG=n" >> "$CONFIG_FILE"
@@ -399,7 +405,8 @@ jobs:
           echo "CONFIG_OPLUS_LOCK_TORTURE=n" >> "$CONFIG_FILE"
           echo "CONFIG_SOC_TOPOLOGY_TEST=n" >> "$CONFIG_FILE"
           echo "CONFIG_SOC_UTILS_TEST=n" >> "$CONFIG_FILE"
-          # Disable Debug
+          
+          # Disable Debug Options
           echo "CONFIG_DEBUG_KERNEL=n" >> "$CONFIG_FILE"
           echo "CONFIG_DYNAMIC_DEBUG=n" >> "$CONFIG_FILE"
           echo "CONFIG_DEBUG_INFO=n" >> "$CONFIG_FILE"
