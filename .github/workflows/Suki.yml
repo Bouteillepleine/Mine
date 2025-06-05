@@ -451,7 +451,7 @@ jobs:
             exit 1
           fi
           wget https://raw.githubusercontent.com/cctv18/kernel_common_oplus_sm8650_scx/refs/heads/main/sched_ext.patch
-          if ! patch -p1 -F 5 --reject-file=- < sched_ext.patch; then
+          if ! patch -p1 -F 5 < sched_ext.patch; then
             echo "::error::Failed to apply sched_ext.patch, saving reject files for debugging"
             ls -la *.rej || true
             exit 1
