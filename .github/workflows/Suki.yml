@@ -442,32 +442,7 @@ jobs:
           rm -rf ./sched_ext/.git
           cd common/kernel/sched
           sed -i.bak '/# include "ext.c"/a\# include "hmbird_sched_proc_main.c"\n#endif\n\n#ifdef CONFIG_SLIM_SCHED\n# include "slim_sysctl.c"' build_policy.c
-      # Set build timestamp
-      - name: scx
-        run: |
-          cd kernel_workspace/kernel_platform/common
-          if [ ! -d "drivers" ]; then
-            echo "::error::Directory kernel_workspace/kernel_platform/common/drivers does not exist"
-            exit 1
-          fi
-          wget https://raw.githubusercontent.com/cctv18/kernel_common_oplus_sm8650_scx/refs/heads/main/sched_ext.patch
-          if ! patch -p1 -F 5 < sched_ext.patch; then
-            echo "::error::Failed to apply sched_ext.patch, saving reject files for debugging"
-            ls -la *.rej || true
-            exit 1
-          fi
-          cd drivers
-          wget https://raw.githubusercontent.com/cctv18/kernel_common_oplus_sm8650_scx/refs/heads/main/hmpatch.c
-          if ! grep -q "hmpatch.o" Makefile; then
-            echo "obj-y += hmpatch.o" >> Makefile
-          fi
-      - name: Upload reject files
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: patch-rejects
-          path: kernel_workspace/kernel_platform/common/*.rej
-                      
+      # Set build timestamp                
       - name: Set Kernel build timestamp
         run: |
           export SOURCE_DATE_EPOCH=$(date -d "${{ inputs.KERNEL_TIME }}" +%s)
