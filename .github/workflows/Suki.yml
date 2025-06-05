@@ -63,12 +63,12 @@ on:
       enable_feature_y:
         description: "Enable LZ4KD"
         required: false
-        default: true
+        default: false
         type: boolean
       enable_feature_z:
         description: "Enable Fengchi Driver"
         required: false
-        default: false
+        default: true
         type: boolean
 
 permissions:
@@ -350,6 +350,7 @@ jobs:
         run: |
           cd kernel_workspace/kernel_platform
           CONFIG_FILE="./common/arch/arm64/configs/gki_defconfig"
+          DEFCONFIG="$CONFIG_FILE"
           echo "CONFIG_KSU=y" >> "$CONFIG_FILE"
           echo "CONFIG_KSU_SUSFS_SUS_SU=n" >> "$CONFIG_FILE"
           echo "CONFIG_KSU_MANUAL_HOOK=y" >> "$CONFIG_FILE"
@@ -401,13 +402,14 @@ jobs:
           echo "CONFIG_DEBUG_KERNEL=n" >> "$CONFIG_FILE"
           echo "CONFIG_DYNAMIC_DEBUG=n" >> "$CONFIG_FILE"
           echo "CONFIG_DEBUG_INFO=n" >> "$CONFIG_FILE"
-          echo "CONFIG_CRYPTO_LZ4HC=y" >> "$CONFIG_FILE"
-          echo "CONFIG_CRYPTO_LZ4K=y" >> "$CONFIG_FILE"
-          echo "CONFIG_CRYPTO_LZ4KD=y" >> "$CONFIG_FILE"
-          echo "CONFIG_CRYPTO_842=y" >> "$CONFIG_FILE"
+          echo "CONFIG_BOEFFLA_WL_BLOCKER=y" >> "$DEFCONFIG"
+          echo "CONFIG_WQ_POWER_EFFICIENT_DEFAULT=y" >> "$DEFCONFIG"
+          echo "CONFIG_CC_OPTIMIZE_FOR_PERFORMANCE=y" >> "$DEFCONFIG"
+          sed -i "s/CONFIG_PRINTK_TIME=y/CONFIG_PRINTK_TIME=n/" "$DEFCONFIG"
+          sed -i "s/CONFIG_PRINTK_CALLER=y/CONFIG_PRINTK_CALLER=n/" "$DEFCONFIG"
           sed -i 's/check_defconfig//' ./common/build.config.gki
           cd common
-          git add -A && git commit -a -m "Add SUSFS configuration" || echo "No changes to commit"
+          git add -A && git commit -a -m "Add SUSFS, wakelock blocker, and optimization configuration" || echo "No changes to commit"
 
       # Update Kconfig
       - name: Update Kconfig for blacklisted modules
@@ -529,21 +531,18 @@ jobs:
       - name: Upload Image (Ace 5 / 13r)
         if: ${{ inputs.FEIL == 'oneplus_ace5' || inputs.FEIL == 'oneplus_13r' }}
         env:
-          IMG_FILE: "${{ inputs.FEIL }}_Image_SukiSU_Ultra_${{ env.KSUVER }}_${{ inputs.ANDROID_VERSION }}_${{ inputs.KERNEL_VERSION }}-${{ env.BUILDDATE }}"
+          IMG_FILE: "${{ inputs.FEIL }}_Image_SukiSU_Ultra_${{ env.KSUVER }}_${{ inputs.ANDROID_VERSION }}-${{ env.BUILDDATE }}"
         uses: actions/upload-artifact@v4
         with:
           name: ${{ env.IMG_FILE }}
-          path: kernel_workspace/kernel_platform/dist/Image
+          path: kernel_workflow/kernel_platform/dist/Image
 
       # Upload image for other models
       - name: Upload Image
         if: ${{ inputs.FEIL != 'oneplus_ace5' && inputs.FEIL != 'oneplus_13r' }}
         env:
-          IMG_FILE: "${{ inputs.FEIL }}_Image_SukiSU_Ultra_${{ env.KSUVER }}_${{ inputs.ANDROID_VERSION }}_${{ inputs.KERNEL_VERSION }}-${{ env.BUILDDATE }}"
-        uses: actions/upload-artifact@v4
-        with:
-          name: ${{ env.IMG_FILE }}
-          path: kernel_workspace/kernel_platform/common/out/arch/arm64/boot/Image
+          IMG_FILE: "${{ inputs.FEIL }}_Image_SukiSU_Ultra_${{ env.KSUVER }}_${{ inputs.ANDROID }}-${{ env.BUILDDATE }}"
+        run: $SUKI_SUSFS_Ultra_${KERNEL_FILES}}
 
       # Download artifacts
       - name: Download artifacts
@@ -554,8 +553,8 @@ jobs:
       # Zip artifacts
       - name: Zip AnyKernel3
         env:
-          IMG_FILE: "${{ inputs.FEIL }}_Image_SukiSU_Ultra_${{ env.KSUVER }}_${{ inputs.ANDROID_VERSION }}_${{ inputs.KERNEL_VERSION }}-${{ env.BUILDDATE }}"
-          ANYKERNEL3_FILE: "${{ inputs.FEIL }}_SukiSU_Ultra_${{ env.KSUVER }}_${{ inputs.ANDROID_VERSION }}_${{ inputs.KERNEL_VERSION }}-${{ env.BUILDDATE }}"
+          IMG_FILE: "${{ inputs.FEIL }}_Image_SukiSU_Ultra_${{ env.KSUVER }}_${{ inputs.ANDROID_VERSION }}_${{ env.KERNEL_VERSION }}-${{ env.BUILDDATE }}"
+          ANYKERNEL3_FILE: "${{ inputs.FEIL }}_SukiSU_Ultra_${{ env.KSUVER }}_${{ inputs.ANDROID_VERSION }}_${{ env.KERNEL_VERSION }}-${{ env.BUILDDATE }}"
         run: |
           cd download
           cd ${{ env.IMG_FILE }} ; zip -r ../${{ env.IMG_FILE }}.zip . * ; cd ..
@@ -572,6 +571,6 @@ jobs:
       # Clean up
       - name: Cleanup workspace
         run: |
-          rm -rf kernel_workspace
+          rm -rf kernel_workflow
           rm -rf download
           rm -f ${{ env.BUILD_LOG }}
