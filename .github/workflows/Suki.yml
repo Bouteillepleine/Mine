@@ -577,38 +577,6 @@ jobs:
           name: build-log
           path: ${{ env.BUILD_LOG }}
 
-      # Create GitHub Release
-      - name: Create GitHub Release
-        env:
-          IMG_FILE: "${{ inputs.FEIL }}_Image_SukiSU_Ultra_${{ env.KSUVER }}_${{ inputs.ANDROID_VERSION }}_${{ inputs.KERNEL_VERSION }}-${{ env.BUILDDATE }}"
-          ANYKERNEL3_FILE: "${{ inputs.FEIL }}_SukiSU_Ultra_${{ env.KSUVER }}_${{ inputs.ANDROID_VERSION }}_${{ inputs.KERNEL_VERSION }}-${{ env.BUILDDATE }}"
-          RELEASE_NAME: "${{ env.FEIL_NAME }} Kernel - GKI/SukiSU Ultra/SUSFS"
-          RELEASE_NOTES: |
-            This release contains SukiSU Ultra and SUSFS for ${{ env.FEIL_NAME }}
-            
-            Features:
-            - SukiSU Ultra | KPM | LZ4KD | Fengchi
-            - SUSFS with magic mount and manual hooks
-            - Optimized network with BBR and ECN
-            - LZ4 compression enhancements
-            
-            Notes:
-            - SUS SU Mode 2 is disabled due to non-kprobe hooks.
-            - Kernel Flasher may not work with latest SUSFS; use https://github.com/libxzr/HorizonKernelFlasher.
-            
-            Modules:
-            - SukiSU Ultra Manager v3.1.3: https://github.com/SukiSU-Ultra/SukiSU-Ultra/releases/download/v3.1.3/SukiSU_v3.1.3_12905-release.apk
-            - SUSFS Module: https://github.com/sidex15/ksu_module_susfs
-        continue-on-error: true
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: ${{ inputs.FEIL }}-SukiSU_Ultra-v${{ env.BUILDDATE }}.${{ github.run_number }}
-          files: |
-            download/*.zip
-          generate_release_notes: true
-          name: ${{ env.RELEASE_NAME }}
-          body: ${{ env.RELEASE_NOTES }}
-
       # Clean up
       - name: Cleanup workspace
         run: |
