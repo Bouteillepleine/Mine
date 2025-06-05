@@ -335,4 +335,3 @@ jobs:
           delete_tag_pattern: 'build-*'
         env:
           GITHUB_TOKEN: ${{ github.token }}
-```
