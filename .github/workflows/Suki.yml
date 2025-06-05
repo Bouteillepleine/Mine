@@ -185,15 +185,7 @@ jobs:
           echo "KSUVER=$KSU_VERSION" >> $GITHUB_ENV
           export KSU_VERSION=$KSU_VERSION
           sed -i "s/DKSU_VERSION=12800/DKSU_VERSION=${KSU_VERSION}/" kernel/Makefile
-        shell: /usr/bin/bash -e {0}
-        env:
-          CCACHE_COMPILERCHECK: %compiler% -dumpmachine; %compiler% -dumpversion
-          CCACHE_NOHASHDIR: true
-          CCACHE_HARDLINK: true
-          CCACHE_DIR: /home/runner/.ccache
-          CCACHE_MAXSIZE: 8G
-          BUILD_LOG: build.log
-
+        
       # Set up SUSFS and apply patches
       - name: Set up susfs
         run: |
