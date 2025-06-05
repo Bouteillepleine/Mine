@@ -168,13 +168,22 @@ jobs:
       # Set up SukiSU with versioned commit
       - name: Set up SukiSU
         run: |
-          cd kernel_workspace/workspace
-          curl -LSs "https://raw.githubusercontent.com/SukiSU-Ultra/SukiSU-Ultra/abcdef1234567890abcdef1234567890abcdef12/main/kernel/setup.sh" | bash -s susfs-dev
+          cd kernel_workspace/kernel_platform
+          curl -LSs "https://raw.githubusercontent.com/SukiSU-Ultra/SukiSU-Ultra/main/kernel/setup.sh" | bash -s susfs-dev
           cd ./KernelSU
           KSU_VERSION=$(expr $(/usr/bin/git rev-list --count main) "+" 10606)
           echo "KSUVER=$KSU_VERSION" >> $GITHUB_ENV
           export KSU_VERSION=$KSU_VERSION
           sed -i "s/DKSU_VERSION=12800/DKSU_VERSION=${KSU_VERSION}/" kernel/Makefile
+        shell: /usr/bin/bash -e {0}
+        env:
+          CCACHE_COMPILERCHECK: %compiler% -dumpmachine; %compiler% -dumpversion
+          CCACHE_NOHASHDIR: true
+          CCACHE_HARDLINK: true
+          CCACHE_DIR: /home/runner/.ccache
+          CCACHE_MAXSIZE: 8G
+          BUILD_LOG: build.log
+          FEIL_NAME: OnePlus 13R
 
       # Set up SUSFS with pinned commits and apply patches
       - name: Set up susfs
