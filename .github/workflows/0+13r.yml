@@ -138,6 +138,7 @@ jobs:
         working-directory: ${{ env.WORKSPACE_DIR }}/kernel_platform
         run: |
           CONFIG_FILE="./common/arch/arm64/configs/gki_defconfig"
+          DEFCONFIG="$CONFIG_FILE"
           echo "CONFIG_KSU=y" >> "$CONFIG_FILE"
           echo "CONFIG_KPM=y" >> "$CONFIG_FILE"
           echo "CONFIG_KSU_SUSFS_SUS_SU=n" >> "$CONFIG_FILE"
@@ -190,10 +191,11 @@ jobs:
           echo "CONFIG_DEBUG_KERNEL=n" >> "$CONFIG_FILE"
           echo "CONFIG_DYNAMIC_DEBUG=n" >> "$CONFIG_FILE"
           echo "CONFIG_DEBUG_INFO=n" >> "$CONFIG_FILE"
-          echo "CONFIG_CRYPTO_LZ4HC=y" >> "$CONFIG_FILE"
-          echo "CONFIG_CRYPTO_LZ4K=y" >> "$CONFIG_FILE"
-          echo "CONFIG_CRYPTO_LZ4KD=y" >> "$CONFIG_FILE"
-          echo "CONFIG_CRYPTO_842=y" >> "$CONFIG_FILE"
+          echo "CONFIG_BOEFFLA_WL_BLOCKER=y" >> "$DEFCONFIG"
+          echo "CONFIG_WQ_POWER_EFFICIENT_DEFAULT=y" >> "$DEFCONFIG"
+          echo "CONFIG_CC_OPTIMIZE_FOR_PERFORMANCE=y" >> "$DEFCONFIG"
+          sed -i "s/CONFIG_PRINTK_TIME=y/CONFIG_PRINTK_TIME=n/" "$DEFCONFIG"
+          sed -i "s/CONFIG_PRINTK_CALLER=y/CONFIG_PRINTK_CALLER=n/" "$DEFCONFIG"
           sed -i 's/check_defconfig//' ./common/build.config.gki
           cd common
           git add -A && git commit -a -m "Add SUSFS configuration" || echo "No changes to commit"
@@ -287,51 +289,4 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: build-log
-          path: ${{ env.WORKSPACE_DIR }}/${{ env.BUILD_LOG }}
-
-  release:
-    needs: build
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-      packages: write
-      actions: read
-      
-    steps:
-      - name: Download ZIP Artifacts
-        uses: actions/download-artifact@v4
-        with:
-          name: Kernel_ZIP_Artifacts
-          path: ./release_zips
-         
-      - name: Create Release
-        id: create_release
-        uses: softprops/action-gh-release@v1
-        with:
-          tag_name: "build-${{ github.run_id }}"
-          name: "OnePlus_13R Build ${{ github.run_number }}"
-          body: |
-            Daily automated build of SukiSU-Ultra kernel
-            - Model: OnePlus 13R
-            - Features: MKSU+SUSFS+VFS+KPM
-            - Build Time: ${{ github.event.repository.updated_at }}
-            - Kernel Version: ${{ needs.build.outputs.ksuver }}
-            - Recommended Manager: [SukiSU-Ultra](https://github.com/ShirkNeko/SukiSU-Ultra/releases)
-            - No need to update if the kernel version hasn't changed!
-            - AnyKernel3 file can be flashed via AnyKernel3/Recovery/TWRP
-            - Image file should be extracted and flashed using Fastboot
-          draft: false
-          prerelease: false
-          files: |
-            release_zips/AnyKernel3_KernelSU_*.zip
-            release_zips/Image_KernelSU_*.zip
-      - name: Clean Up Old Releases
-        uses: dev-drprasad/delete-older-releases@v0.3.4
-        continue-on-error: true
-        timeout-minutes: 5
-        with:
-          keep_latest: ${{ env.RETENTION_COUNT }}
-          delete_tags: true
-          delete_tag_pattern: 'build-*'
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
+          path: ${{ env.WORKSPACE_DIR }}/${{ env.BUILD_LOG }} 
