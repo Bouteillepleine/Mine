@@ -27,7 +27,7 @@ on:
         type: choice
         description: "Phone Code"
         required: true
-        default: 'sun'
+        default: 'pineapple'
         options: 
          - sun
          - pineapple
@@ -402,7 +402,6 @@ jobs:
         if: ${{ inputs.KERNEL_VERSION == '6.6' }}
         run: |
          cd kernel_workspace/kernel_platform/
-         #git clone https://github.com/HanKuCha/sched_ext.git
          git clone https://github.com/AQ16/sched_ext.git
          cp -r ./sched_ext/* ./common/kernel/sched
          rm -rf ./sched_ext/.git
@@ -449,9 +448,7 @@ jobs:
           IMG_FILE: "${{ inputs.FEIL }}_Image_SukiSU_Ultra_${{ env.KSUVER }}_${{ inputs.ANDROID_VERSION }}_${{ inputs.KERNEL_VERSION }}-${{ env.BUILDDATE }}"
           ANYKERNEL3_FILE: "${{ inputs.FEIL }}_SukiSU_Ultra_${{ env.KSUVER }}_${{ inputs.ANDROID_VERSION }}_${{ inputs.KERNEL_VERSION }}-${{ env.BUILDDATE }}"
         run: |
-         call git clone https://github.com/Kernel-SU/AnyKernel3.git --depth=1
-         # Patch dtbo via Anykernel3 scripts
-         #git clone https://github.com/HanKuCha/AnyKernel3.git --depth=1
+         git clone https://github.com/Kernel-SU/AnyKernel3.git --depth=1
          rm -rf ./AnyKernel3/.git
          rm -rf ./AnyKernel3/push.sh
          MODEL="${{ inputs.FEIL }}"
@@ -499,4 +496,4 @@ jobs:
         run: |
            cd download
            cd ${{ env.IMG_FILE }} ; zip -r ../${{ env.IMG_FILE }}.zip . * ; cd ..
-           cd ${{ env.ANYKERNEL3_FILE }} ; zip -r ../${{ env.ANYKERNEL3_FILE }}.zip . * ; cd ..     
+           cd ${{ env.ANYKERNEL3_FILE }} ; zip -r ../${{ env.ANYKERNEL3_FILE }}.zip . * ; cd ..
