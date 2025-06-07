@@ -1,355 +1,150 @@
-name: SukiSU2
+name: OnePlus_13r
+
 on:
   workflow_dispatch:
-    inputs:
-      CPU:
-        type: choice
-        description: "Platform"
-        required: true
-        default: 'sm8650'
-        options: 
-         - sm8750
-         - sm8650
-      FEIL:
-        type: choice
-        description: "Model"
-        required: true
-        default: 'oneplus_13r'
-        options: 
-         - oneplus_13
-         - oneplus_13_v
-         - oneplus_13t
-         - oneplus_13r
-         - oneplus_ace5_pro
-         - oneplus_ace5_pro_v
-         - oneplus_ace5
-      CPUD:
-        type: choice
-        description: "Phone Code"
-        required: true
-        default: 'pineapple'
-        options: 
-         - sun
-         - pineapple
-      ANDROID_VERSION:
-        type: choice
-        description: "Operating System"
-        required: true
-        default: 'android14'
-        options: 
-         - android15
-         - android14
-      KERNEL_VERSION:
-        type: choice
-        description: "Kernel Version"
-        required: true
-        default: '6.1'
-        options: 
-         - '6.6'
-         - '6.1'
-      KERNEL_NAME:
-        description: "Kernel Name"
-        required: true
-        default: '-android15-8-ogki-3rc03gov329nav91b'
-      KERNEL_TIME:
-        description: "Kernel Build Date"
-        required: true
-        default: 'Tue Dec 17 23:36:49 UTC 2024'
-      enable_feature_x:
-        description: "Enable KPM"
-        required: false
-        default: true
-        type: boolean
-      enable_feature_y:
-        description: "Enable LZ4KD"
-        required: false
-        default: false
-        type: boolean
-      enable_feature_z:
-        description: "Enable Fengchi Driver"
-        required: false
-        default: true
-        type: boolean
+  schedule:
+    - cron: '0 16 * * *'
 
-permissions:
-  contents: write  # Required for creating GitHub Releases
+env:
+  RETENTION_COUNT: 3  
+  CPU: 'sm8650'
+  FEIL: 'oneplus_13r'
+  CPUD: 'pineapple'
+  ANDROID_VERSION: 'android14'
+  KERNEL_VERSION: '6.1'
+  KERNEL_NAME: '-11-o-ga7b5daa5t1b5'
+  KERNELSU_VARIANT: 'SukiSU-Ultra'
+  KERNELSU_VERSION: 'main'
+  SUSFS_ENABLED: 'Enabled'  
+  VFS_PATCH_ENABLED: 'Enabled'
+  WORKSPACE_DIR: 'kernel_workspace'
 
 jobs:
-  OnePlus-Kernel-Build:
+  build:
     runs-on: ubuntu-latest
-    env:
-      CCACHE_COMPILERCHECK: "%compiler% -dumpmachine; %compiler% -dumpversion"
-      CCACHE_NOHASHDIR: "true"
-      CCACHE_HARDLINK: "true"
-      CCACHE_DIR: /home/runner/.ccache  
-      CCACHE_MAXSIZE: 8G
-      BUILD_LOG: build.log
+    outputs:
+      ksuver: ${{ steps.ksu_version.outputs.ksuver }}
     steps:
-      # Validate input combinations
-      - name: Validate inputs
-        run: |
-          VALID_COMBINATIONS='
-            sm8750|oneplus_13|sun|android15|6.6
-            sm8750|oneplus_13_v|sun|android15|6.6
-            sm8750|oneplus_13t|sun|android15|6.6
-            sm8650|oneplus_13r|pineapple|android14|6.1
-            sm8650|oneplus_ace5|pineapple|android14|6.1
-            sm8750|oneplus_ace5_pro|sun|android15|6.6
-            sm8750|oneplus_ace5_pro_v|sun|android15|6.6
-          '
-          INPUT_COMBINATION="${{ inputs.CPU }}|${{ inputs.FEIL }}|${{ inputs.CPUD }}|${{ inputs.ANDROID_VERSION }}|${{ inputs.KERNEL_VERSION }}"
-          if ! echo "$VALID_COMBINATIONS" | grep -q "$INPUT_COMBINATION"; then
-            echo "::error::Invalid input combination: $INPUT_COMBINATION"
-            echo "Valid combinations for ${{ inputs.FEIL }}:"
-            echo "$VALID_COMBINATIONS" | grep "${{ inputs.FEIL }}" || echo "None available"
-            exit 1
-          fi
-      # Set human-readable model name
-      - name: Set formatted model name
-        run: |
-          case "${{ inputs.FEIL }}" in
-            oneplus_13) MODEL_NAME="OnePlus 13" ;;
-            oneplus_13_v) MODEL_NAME="OnePlus 13 (Android 15)" ;;
-            oneplus_13t) MODEL_NAME="OnePlus 13T" ;;
-            oneplus_13r) MODEL_NAME="OnePlus 13R" ;;
-            oneplus_ace5) MODEL_NAME="OnePlus Ace 5" ;;
-            oneplus_ace5_pro) MODEL_NAME="OnePlus Ace 5 Pro" ;;
-            oneplus_ace5_pro_v) MODEL_NAME="OnePlus Ace 5 Pro (Android 15)" ;;
-            *) MODEL_NAME="Unknown Model" ;;
-          esac
-          echo "FEIL_NAME=$MODEL_NAME" >> "$GITHUB_ENV"
-      # Free up disk space
-      - name: Maximize build space
+      - name: Maximize Build Space
         uses: easimon/maximize-build-space@master
         with:
           root-reserve-mb: 8192
           temp-reserve-mb: 2048
+          swap-size-mb: 8192
           remove-dotnet: 'true'
           remove-android: 'true'
           remove-haskell: 'true'
           remove-codeql: 'true'
-      # Configure Git
-      - name: Configure Git
+
+      - name: Configure Environment
         run: |
           git config --global user.name "O+builder"
           git config --global user.email "O+builder@yahoo.com"
-      # Install dependencies
-      - name: Install dependencies
-        run: |
-          sudo apt update && sudo apt upgrade -y
-          sudo apt install -y python3 git curl libelf-dev lld ccache jq
-      # Restore ccache
-      - name: Restore ccache
+          
+          mkdir -p ${{ env.WORKSPACE_DIR }}
+      - name: Set Dependency Cache
+        id: apt-cache
         uses: actions/cache@v3
         with:
-          path: /home/runner/.ccache
-          key: ccache-${{ runner.os }}-${{ inputs.CPU }}-${{ inputs.FEIL }}-${{ inputs.KERNEL_VERSION }}
+          path: /var/cache/apt/archives
+          key: ${{ runner.os }}-apt-${{ hashFiles('**/setup-requirements.txt') }}
           restore-keys: |
-            ccache-${{ runner.os }}-${{ inputs.CPU }}-${{ inputs.FEIL }}
-      # Install repo tool
-      - name: Install repo tool
+            ${{ runner.os }}-apt-
+      - name: Install Dependencies
+        run: |
+          sudo apt update && sudo apt upgrade -y
+          sudo apt install -y python3 git curl
+      - name: Install and Configure repo Tool
         run: |
           curl https://storage.googleapis.com/git-repo-downloads/repo > ~/repo
           chmod a+x ~/repo
           sudo mv ~/repo /usr/local/bin/repo
-      # Sync kernel source
-      - name: Initialize repo and sync
+      - name: Initialize Repository and Sync
+        working-directory: ${{ env.WORKSPACE_DIR }}
         run: |
-          mkdir kernel_workspace && cd kernel_workspace
-          repo init -u https://github.com/OnePlusOSS/kernel_manifest.git -b refs/heads/oneplus/${{ inputs.CPU }} -m ${{ inputs.FEIL }}.xml --depth=1
-          repo --trace sync -c -j$(nproc --all) --no-tags
-          rm kernel_platform/common/android/abi_gki_protected_exports_* || echo "No protected exports!"
-          rm kernel_platform/msm-kernel/android/abi_gki_protected_exports_* || echo "No protected exports!"      
-      # Set up SukiSU
-      - name: Set up SukiSU
+          repo init -u https://github.com/OnePlusOSS/kernel_manifest.git -b oneplus/${{ env.CPU }} -m ${{ env.FEIL }}.xml --depth=1
+          repo sync
+          
+          find kernel_platform -name "abi_gki_protected_export_.*" -delete || echo "No protected exports found!"
+          
+          for script_path in kernel_platform/common/scripts/setlocalversion kernel_platform/msm-kernel/scripts/setlocalversion kernel_platform/external/dtc/scripts/setlocalversion; do
+            if [ -f "$script_path" ]; then
+              sed -i 's/ -dirty//g' "$script_path"
+            fi
+          done
+      
+      - name: Set KernelSU Branch
+        id: setup_branch
         run: |
-          cd kernel_workspace/kernel_platform
-          curl -LSs "https://raw.githubusercontent.com/SukiSU-Ultra/SukiSU-Ultra/main/kernel/setup.sh" | bash -s susfs-dev
-          cd ./KernelSU
+          if [[ "${{ env.KERNELSU_VARIANT }}" == "SukiSU-Ultra" && "${{ env.KERNELSU_VERSION }}" == "main" ]]; then
+            echo "BRANCH=-s susfs-dev" >> $GITHUB_ENV
+          else
+            echo "BRANCH=" >> $GITHUB_ENV
+          fi
+      - name: Add SukiSU-Ultra
+        id: ksu_version
+        working-directory:  ${{ env.WORKSPACE_DIR }}/kernel_platform
+        run: |
+          curl -LSs "https://raw.githubusercontent.com/ShirkNeko/SukiSU-Ultra/refs/heads/main/kernel/setup.sh" | bash ${{ env.BRANCH }}
+          
+          cd KernelSU
           KSU_VERSION=$(expr $(/usr/bin/git rev-list --count main) "+" 10606)
           echo "KSUVER=$KSU_VERSION" >> $GITHUB_ENV
-          export KSU_VERSION=$KSU_VERSION
-          sed -i "s/DKSU_VERSION=12800/DKSU_VERSION=${KSU_VERSION}/" kernel/Makefile
-      # Set up SUSFS and apply patches
-      - name: Set up susfs
+          echo "ksuver=$KSU_VERSION" >> $GITHUB_OUTPUT
+          
+          sed -i "s/DKSU_VERSION=12800/DKSUVER=$KSU_VERSION/" kernel/Makefile
+      - name: Prepare and Apply Patches
+        working-directory: ${{ env.WORKSPACE_DIR }}
         run: |
-          cd kernel_workspace
-          git clone https://gitlab.com/simonpunk/susfs4ksu.git -b gki-${{ inputs.ANDROID_VERSION }}-${{ inputs.KERNEL_VERSION }} --single-branch --depth=1 --no-tags
-          git clone https://github.com/ShirkNeko/SukiSU_patch.git --single-branch --depth=1 --no-tags
+          
+          git clone https://gitlab.com/simonpunk/susfs4ksu.git -b gki-${{ env.ANDROID_VERSION }}-${{ env.KERNEL_VERSION }}
+          git clone https://github.com/ShirkNeko/SukiSU_patch.git
+          
           cd kernel_platform
-          cp ../susfs4ksu/kernel_patches/50_add_susfs_in_gki-${{ inputs.ANDROID_VERSION }}-${{ inputs.KERNEL_VERSION }}.patch ./common/
-          cp ../susfs4ksu/kernel_patches/fs/* ./common/fs/
-          cp ../susfs4ksu/kernel_patches/include/linux/* ./common/include/linux/
-          # Copy LZ4K files
-          cp -r ../SukiSU_patch/other/zram/lz4k/include/linux/* ./common/include/linux
-          cp -r ../SukiSU_patch/other/zram/lz4k/lib/* ./common/lib
-          cp -r ../SukiSU_patch/other/zram/lz4k/crypto/* ./common/crypto
-          cp -r ../SukiSU_patch/other/zram/lz4k_oplus ./common/lib/
-          # Test and apply patches
+          
+          cp ../susfs4ksu/kernel_patches/50_add_susfs_in_gki-${{ env.ANDROID_VERSION }}-${{ env.KERNEL_VERSION }}.patch ./common/
+          cp -r ../susfs4ksu/kernel_patches/fs/* ./common/fs/
+          cp -r ../susfs4ksu/kernel_patches/include/linux/* ./common/include/linux/
+          
           cd ./common
-          MODEL="${{ inputs.FEIL }}"
-          if { [[ "$MODEL" =~ oneplus_13 || "$MODEL" =~ ace5_pro ]]; } && [[ "$MODEL" != "oneplus_13t" ]]; then
-            FILENAME="50_add_susfs_in_gki-${{ inputs.ANDROID_VERSION }}-${{ inputs.KERNEL_VERSION }}.patch"
-            sed -i 's/-32,12 +32,38/-32,11 +32,37/g' "$FILENAME"
-            sed -i '/#include <trace\/hooks\/fs.h>/d' "$FILENAME"
-          fi
+          patch -p1 < 50_add_susfs_in_gki-${{ env.ANDROID_VERSION }}-${{ env.KERNEL_VERSION }}.patch || true
+          
           cp ../../SukiSU_patch/69_hide_stuff.patch ./
-          if ! patch --dry-run -p1 -F 3 < 69_hide_stuff.patch; then
-            echo "::error::Dry-run failed for 69_hide_stuff.patch"
-            exit 1
-          fi
-          if ! patch -p1 -F 3 < 69_hide_stuff.patch; then
-            echo "::error::Failed to apply 69_hide_stuff.patch"
-            exit 1
-          fi
-          if ! patch --dry-run -p1 < 50_add_susfs_in_gki-${{ inputs.ANDROID_VERSION }}-${{ inputs.KERNEL_VERSION }}.patch; then
-            echo "::error::Dry-run failed for SUSFS GKI patch"
-            exit 1
-          fi
-          if ! patch -p1 < 50_add_susfs_in_gki-${{ inputs.ANDROID_VERSION }}-${{ inputs.KERNEL_VERSION }}.patch; then
-            echo "::error::Failed to apply SUSFS GKI patch"
-            exit 1
-          fi
-          cp ../../SukiSU_patch/hooks/syscall_hooks.patch ./
-          if ! patch --dry-run -p1 -F 3 < syscall_hooks.patch; then
-            echo "::error::Dry-run failed for syscall_hooks.patch"
-            exit 1
-          fi
-          if ! patch -p1 -F 3 < syscall_hooks.patch; then
-            echo "::error::Failed to apply syscall_hooks.patch"
-            exit 1
-          fi
-          echo "Patch completed"
-      # Apply HMBird patch
-      - name: Apply HMBird GKI patch
-        if: ${{ inputs.FEIL != 'oneplus_ace5' && inputs.FEIL != 'oneplus_13r' }}
+          patch -p1 -F 3 < 69_hide_stuff.patch
+          
+          cp ../../SukiSU_patch/hooks/new_hooks.patch ./
+          patch -p1 -F 3 < new_hooks.patch
+      - name: Configure Kernel Options
+        working-directory: ${{ env.WORKSPACE_DIR }}/kernel_platform
         run: |
-          cd kernel_workspace/kernel_platform/common/drivers
-          cat << 'EOF' > hmbird_patch.c
-          #include <linux/init.h>
-          #include <linux/module.h>
-          #include <linux/of.h>
-          #include <linux/slab.h>
-          #include <linux/string.h>
-          static int __init hmbird_patch_init(void)
-          {
-              struct device_node *ver_np;
-              const char *type;
-              int ret;
-              ver_np = of_find_node_by_path("/soc/oplus,hmbird/version_type");
-              if (!ver_np) {
-                   pr_info("hmbird_patch: version_type node not found\n");
-                   return 0;
-              }
-              ret = of_property_read_string(ver_np, "type", &type);
-              if (ret) {
-                   pr_info("hmbird_patch: type property not found\n");
-                   of_node_put(ver_np);
-                   return 0;
-              }
-              if (strcmp(type, "HMBIRD_OGKI")) {
-                   of_node_put(ver_np);
-                   return 0;
-              }
-              struct property *prop = of_find_property(ver_np, "type", NULL);
-              if (prop) {
-                   struct property *new_prop = kmalloc(sizeof(*prop), GFP_KERNEL);
-                   if (!new_prop) {
-                        pr_info("hmbird_patch: kmalloc for new_prop failed\n");
-                        of_node_put(ver_np);
-                        return 0;
-                   }
-                   memcpy(new_prop, prop, sizeof(*prop));
-                   new_prop->value = kmalloc(strlen("HMBIRD_GKI") + 1, GFP_KERNEL);
-                   if (!new_prop->value) {
-                        pr_info("hmbird_patch: kmalloc for new_prop->value failed\n");
-                        kfree(new_prop);
-                        of_node_put(ver_np);
-                        return 0;
-                   }
-                   strcpy(new_prop->value, "HMBIRD_GKI");
-                   new_prop->length = strlen("HMBIRD_GKI") + 1;
-                   if (of_remove_property(ver_np, prop) != 0) {
-                        pr_info("hmbird_patch: of_remove_property failed\n");
-                        return 0;
-                   }
-                   if (of_add_property(ver_np, new_prop) != 0) {
-                        pr_info("hmbird_patch: of_add_property failed\n");
-                        return 0;
-                   }
-                   pr_info("hmbird_patch: success from HMBIRD_OGKI to HMBIRD_GKI\n");
-              }
-              else {
-                   pr_info("hmbird_patch: type property not found\n");
-              }
-              of_node_put(ver_np);
-              return 0;
-          }
-          early_initcall(hmbird_patch_init);
-          MODULE_LICENSE("GPL");
-          MODULE_AUTHOR("reigadegr");
-          MODULE_DESCRIPTION("Forcefully convert HMBIRD_OGKI to HMBIRD_GKI.");
-          EOF
-          if ! grep -q "hmbird_patch.o" Makefile; then
-            echo "obj-y += hmbird_patch.o" >> Makefile
-          fi
-          cd ../../../
-          git add -A
-          git commit -m "Add HMBird GKI patch" || echo "No changes to commit"
-      # Apply LZ4KD patches
-      - name: Apply lz4kd Patches
-        if: ${{ inputs.enable_feature_y }}
-        run: |
-          cd kernel_workspace/kernel_platform/common
-          cp ../../SukiSU_patch/other/zram/zram_patch/${{ inputs.KERNEL_VERSION }}/lz4kd.patch ./
-          echo "Applying lz4kd patch"
-          if ! patch --dry-run -p1 -F 3 < lz4kd.patch; then
-            echo "::error::Dry-run failed for lz4kd.patch"
-            exit 1
-          fi
-          if ! patch -p1 -F 3 < lz4kd.patch; then
-            echo "::error::Failed to apply lz4kd.patch"
-            exit 1
-          fi
-          echo 'lz4kd_patch completed'
-          cp ../../SukiSU_patch/other/zram/zram_patch/${{ inputs.KERNEL_VERSION }}/lz4k_oplus.patch ./
-          echo "Applying lz4k_oplus patch"
-          if ! patch --dry-run -p1 -F 3 < lz4k_oplus.patch; then
-            echo "::error::Dry-run failed for lz4k_oplus.patch"
-            exit 1
-          fi
-          if ! patch -p1 -F 3 < lz4k_oplus.patch; then
-            echo "::error::Failed to apply lz4k_oplus.patch"
-            exit 1
-          fi
-          echo 'lz4k_oplus_patch completed'
-      # Configure kernel
-      - name: Add SUSFS Configuration Settings
-        run: |
-          cd kernel_workspace/kernel_platform
           CONFIG_FILE="./common/arch/arm64/configs/gki_defconfig"
           DEFCONFIG="$CONFIG_FILE"
+          
+          # Existing configurations
           echo "CONFIG_KSU=y" >> "$CONFIG_FILE"
-          echo "CONFIG_KSU_SUSFS_SUS_SU=n" >> "$CONFIG_FILE"
+          echo "CONFIG_KPM=y" >> "$CONFIG_FILE"
+          echo "CONFIG_KSU_SUSFS_SUS_SUSFS_SUS=n" >> "$CONFIG_FILE"
           echo "CONFIG_KSU_MANUAL_HOOK=y" >> "$CONFIG_FILE"
           echo "CONFIG_KSU_SUSFS=y" >> "$CONFIG_FILE"
-          echo "CONFIG_KSU_SUSFS_HAS_MAGIC_MOUNT=y" >> "$CONFIG_FILE"
+          echo "CONFIG_KSU_SUSFS_HASMAGIC_MOUNT=y" >> "$CONFIG_FILE"
           echo "CONFIG_KSU_SUSFS_SUS_PATH=y" >> "$CONFIG_FILE"
-          echo "CONFIG_KSU_SUSFS_SUS_MOUNT=y" >> "$CONFIG_FILE"
-          echo "CONFIG_KSU_SUSFS_AUTO_ADD_SUS_KSU_DEFAULT_MOUNT=y" >> "$CONFIG_FILE"
-          echo "CONFIG_KSU_SUSFS_AUTO_ADD_SUS_BIND_MOUNT=y" >> "$CONFIG_FILE"
+          echo "CONFIG_KSU_SUSFS_SUSMOUNT=y" >> "$CONFIG_FILE"
+          echo "CONFIG_KSU_SUSFS_AUTOADD_SUS_KSU_DEFAULT_MOUNT=y" >> "$CONFIG_FILE"
+          echo "CONFIG_KSU_SUSFS_AUTOSUSFS_AUTOADD_SUS_BIND_MOUNT=y" >> "$CONFIG_FILE"
           echo "CONFIG_KSU_SUSFS_SUS_KSTAT=y" >> "$CONFIG_FILE"
-          echo "CONFIG_KSU_SUSFS_SUS_OVERLAYFS=n" >> "$CONFIG_FILE"
-          echo "CONFIG_KSU_SUSFS_TRY_UMOUNT=y" >> "$CONFIG_FILE"
-          echo "CONFIG_KSU_SUSFS_AUTO_ADD_TRY_UMOUNT_FOR_BIND_MOUNT=y" >> "$CONFIG_FILE"
-          echo "CONFIG_KSU_SUSFS_SPOOF_UNAME=y" >> "$CONFIG_FILE"
-          echo "CONFIG_KSU_SUSFS_ENABLE_LOG=y" >> "$CONFIG_FILE"
-          echo "CONFIG_KSU_SUSFS_HIDE_KSU_SUSFS_SYMBOLS=y" >> "$CONFIG_FILE"
-          echo "CONFIG_KSU_SUSFS_SPOOF_CMDLINE_OR_BOOTCONFIG=y" >> "$CONFIG_FILE"
-          echo "CONFIG_KSU_SUSFS_OPEN_REDIRECT=y" >> "$CONFIG_FILE"
+          echo "CONFIG_KSU_SUSFS_SUSOVERLAYFS=n" >> "$CONFIG_FILE"
+          echo "CONFIG_KSU_SUSFS_SUSFS_TRYUMOUNT=y" >> "$CONFIG_FILE"
+          echo "CONFIG_KSU_SUSFS_AUTOADD_SUSFS_AUTO_ADDTRY_UMOUNT_FOR_BOUNTMOUNT=y" >> "$CONFIG_FILE"
+          
+          # Additional configurations (merged, no duplicates)
+          echo "CONFIG_KSU_SUSFS_SPOOFU_NAME=y" >> "$CONFIG_FILE"
+          echo "CONFIG_SUSFS_KSU_SUSFS_ENABLE_LOG=y" >> "$CONFIG_FILE"
+          echo "CONFIG_KSU_SUSFS_HIDKSU_SUSFS_KSU_SUSFS_SYMBOLS=y" >> "$CONFIG_FILE"
+          echo "CONFIG_SUS_SUSFS_SPOOFS_CMDLINEOR_BOOTCONFIG=y" >> "$CONFIG_FILE"
+          echo "CONFIG_KSU_SUSFS_OPENREDIRECT" >> "$CONFIG_FILE"
           echo "CONFIG_TMPFS_XATTR=y" >> "$CONFIG_FILE"
-          echo "CONFIG_TMPFS_POSIX_ACL=y" >> "$CONFIG_FILE"
-          echo "CONFIG_TCP_CONG_ADVANCED=y" >> "$CONFIG_FILE"
+          echo "CONFIG_TMPFS_POSIXACL=y" >> "$CONFIG_FILE"
+          echo "CONFIG_TCP_CONGADVANCED=y" >> "$CONFIG_FILE"
           echo "CONFIG_TCP_CONG_BBR=y" >> "$CONFIG_FILE"
           echo "CONFIG_DEFAULT_BBR=y" >> "$CONFIG_FILE"
           echo "CONFIG_TCP_CONG_BIC=n" >> "$CONFIG_FILE"
@@ -367,7 +162,7 @@ jobs:
           echo "CONFIG_IP_NF_TARGET_ECN=y" >> "$CONFIG_FILE"
           echo "CONFIG_TCP_FASTOPEN=y" >> "$CONFIG_FILE"
           echo "CONFIG_IP_NF_TARGET_TTL=y" >> "$CONFIG_FILE"
-          echo "CONFIG_IP6_NF_TARGET_HL=y" >> "$CONFIG_FILE"
+          echo "CONFIG_IP_NF6_NF_TARGET_HL=y" >> "$CONFIG_FILE"
           echo "CONFIG_IP6_NF_MATCH_HL=y" >> "$CONFIG_FILE"
           echo "CONFIG_EXT4_INODE_TEST=n" >> "$CONFIG_FILE"
           echo "CONFIG_F_FS_IPC_LOG=n" >> "$CONFIG_FILE"
@@ -379,261 +174,142 @@ jobs:
           echo "CONFIG_SOC_UTILS_TEST=n" >> "$CONFIG_FILE"
           echo "CONFIG_DEBUG_KERNEL=n" >> "$CONFIG_FILE"
           echo "CONFIG_DYNAMIC_DEBUG=n" >> "$CONFIG_FILE"
+          echo "CONFIG_DEBUGFS=n" >> "$CONFIG_FILE"
           echo "CONFIG_DEBUG_INFO=n" >> "$CONFIG_FILE"
           echo "CONFIG_BOEFFLA_WL_BLOCKER=y" >> "$DEFCONFIG"
           echo "CONFIG_WQ_POWER_EFFICIENT_DEFAULT=y" >> "$DEFCONFIG"
           echo "CONFIG_CC_OPTIMIZE_FOR_PERFORMANCE=y" >> "$DEFCONFIG"
+          
           sed -i "s/CONFIG_PRINTK_TIME=y/CONFIG_PRINTK_TIME=n/" "$DEFCONFIG"
           sed -i "s/CONFIG_PRINTK_CALLER=y/CONFIG_PRINTK_CALLER=n/" "$DEFCONFIG"
+          
           sed -i 's/check_defconfig//' ./common/build.config.gki
-          cd common
-          git add -A && git commit -a -m "Add SUSFS, wakelock blocker, and optimization configuration" || echo "No changes to commit"
-      # Update Kconfig
-      - name: Update Kconfig for blacklisted modules
+      - name: Update Kconfig for Blacklisted Modules
         run: |
           find kernel_workspace/kernel_platform -name Kconfig -exec sed -i \
             -e 's/CONFIG_EXT4_INODE_TEST=[ym]/CONFIG_EXT4_INODE_TEST=n/' \
             -e 's/CONFIG_F_FS_IPC_LOG=[ym]/CONFIG_F_FS_IPC_LOG=n/' \
             -e 's/CONFIG_HUNG_TASK_ENH=[ym]/CONFIG_HUNG_TASK_ENH=n/' \
-            -e 's/CONFIG_IIO_TEST_FORMAT=[ym]/CONFIG_IIO_TEST_FORMAT=n/' \
-            -e 's/CONFIG_OPLUS_BSP_SIGKILL_DIAGNOSIS=[ym]/CONFIG_OPLUS_BSP_SIGKILL_DIAGNOSIS=n/' \
+            -e 's/CONFIG_FIIO_TEST_FORMAT=[ym]/CONFIG_IIO_TEST_FORMAT=n/' \
+            -e 's/CONFIG_OPLUS_BSP_SIGKILL_DIAGNOSIS=[ym]/CONFIG_OPLUS_BSP_SGKILL_DIAGNOSIS=n/' \
             -e 's/CONFIG_OPLUS_LOCK_TORTURE=[ym]/CONFIG_OPLUS_LOCK_TORTURE=n/' \
             -e 's/CONFIG_SOC_TOPOLOGY_TEST=[ym]/CONFIG_SOC_TOPOLOGY_TEST=n/' \
-            -e 's/CONFIG_SOC_UTILS_TEST=[ym]/CONFIG_SOC_UTILS_TEST=n/' {} \;
-      # Enable KPM
-      - name: Add KPM Configuration Settings
-        if: ${{ inputs.enable_feature_x }}
+            -e 's/CONFIG_SOC_UTILS_TEST=[ym]/CONFIG_SOC_UTILS_TEST=n/' \
+            {} \; \
+      - name: Add Build Name
+        working-directory: ${{ env.WORKSPACE_DIR }}/kernel_platform
         run: |
-          cd kernel_workspace/kernel_platform
-          echo "CONFIG_KPM=y" >> ./common/arch/arm64/configs/gki_defconfig
-          sudo sed -i 's/check_defconfig//' ./common/build.config.gki
-          cd common
-          git add -A && git commit -a -m "BUILD Kernel"
-      # Set custom kernel name
-      - name: Add kernel custom name
-        run: |
-          cd kernel_workspace/kernel_platform
-          sed -i 's/${scm_version}//' ./common/scripts/setlocalversion
-          sudo sed -i 's/-4k/${{ inputs.KERNEL_NAME }}/g' ./common/arch/arm64/configs/gki_defconfig
-      # Add Fengchi scheduler
-      - name: Add Fengchi
-        if: ${{ inputs.KERNEL_VERSION == '6.6' }}
-        run: |
-          cd kernel_workspace/kernel_platform
-          git clone https://github.com/AQ16/sched_ext.git --single-branch --depth=1 --no-tags
-          cp -r ./sched_ext/* ./common/kernel/sched
-          rm -rf ./sched_ext/.git
-          cd common/kernel/sched
-          sed -i.bak '/# include "ext.c"/a\# include "hmbird_sched_proc_main.c"\n#endif\n\n#ifdef CONFIG_SLIM_SCHED\n# include "slim_sysctl.c"' build_policy.c
-      # Set build timestamp                
-      - name: Set Kernel build timestamp
-        run: |
-          export SOURCE_DATE_EPOCH=$(date -d "${{ inputs.KERNEL_TIME }}" +%s)
-          echo "SOURCE_DATE_EPOCH=$SOURCE_DATE_EPOCH" >> $GITHUB_ENV
-          echo "BUILDDATE=$(date +'%Y%m%d')" >> $GITHUB_ENV
-      # Build kernel
+          sed -i "/stable_scmversion_cmd/s/-maybe-dirty//g" ./build/kernel/kleaf/impl/stamp.bzl
+          sed -i 's|echo "\$res"|echo "'"$(echo "${{ env.KERNEL_NAME }}" | sed 's/[\&@]/\\&/g')"'"|g' ./common/scripts/setlocalversion
+          
       - name: Build Kernel
+        working-directory: ${{ env.WORKSPACE_DIR }}
         run: |
-          MODEL="${{ inputs.FEIL }}"
-          if [[ "$MODEL" != "oneplus_ace5" && "$MODEL" != "oneplus_13r" ]]; then
-            export KBUILD_BUILD_TIMESTAMP="${{ github.event.inputs.KERNEL_TIME }}"
-            export PATH="$GITHUB_WORKSPACE/kernel_workspace/kernel_platform/prebuilts/clang/host/linux-x86/clang-r510928/bin:$PATH"
-            export PATH="/usr/lib/ccache:$PATH"
-            sudo apt install libelf-dev
-            cd kernel_workspace/kernel_platform/common
-            if ! make -j$(nproc --all) LLVM=1 ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- CC=clang RUSTC=../../prebuilts/rust/linux-x86/1.73.0b/bin/rustc PAHOLE=../../prebuilts/kernel-build-tools/linux-x86/bin/pahole LD=ld.lld HOSTLD=ld.lld O=out KCFLAGS+=-O2 gki_defconfig all >> $BUILD_LOG 2>&1; then
-              echo "::error::Kernel build failed"
-              cat $BUILD_LOG
-              exit 1
+          if [[ "${{ env.CPU }}" == "sm8650" || "${{ env.CPU }}" == "sm8750" ]]; then
+            ./kernel_platform/build_with_bazel.py -t ${{ env.CPUD }} gki -action_env=KSU_VERSION
+          
+          else
+            LTO=thin ./kernel_platform/oplus/build/oplus_build_kernel.sh ${{ env.CPUD }} gki
+          
+      - name: Clone AnyKernel3
+        run: |
+          git clone https://github.com/Kernel-SU/AnyKernel3 --depth=1
+          rm -rf ./AnyKernel3/.git
+          dir1="./kernel_workspace/kernel_platform/out/msm-kernel-${{ env.CPUD }}-gki/dist/"
+          dir2="./kernel_workspace/kernel_platform/common/out/arch/arm64/boot/"
+          dir3="./kernel_workspace/kernel_platform/out/msm-${{ env.CPUD }}-${{ env.CPUD }}-gki/dist/"
+          target1="./AnyKernel3/"
+          target2="./kernel_workspace/init_boot_Image.img"
+          if find "$dir1" -name "Image" | grep -q "Image"; then
+            image_path="$dir1"Image
+          elif find "$dir2" -name "Image" | grep -q "Image"; then
+            image_path="$dir2"Image
+          elif find "$dir3" -name "Image" | grep -q "Image"; then
+            image_path="$dir3"Image
+          else
+            image_path=$(find "./kernel_workspace/kernel_platform/common/out/" -name "Image" | head -n 1)
+          fi
+          if [ -n "$image_path" ] && [ -f "$image_path" ]; then
+            mkdir -p "$dir1"
+            if [ "$(realpath "$image_path")" != "$(realpath "$dir1"Image)" ]; then
+              cp "$image_path" "$dir1"
+            else
+              echo "Source and target are the same, skipping copy"
             fi
           else
-            export SOURCE_DATE_EPOCH=${SOURCE_DATE_EPOCH}
-            cd kernel_workspace/kernel_platform
-            if ! tools/bazel run --config=fast --config=stamp --lto=thin //common:kernel_aarch64_dist -- --dist_dir=dist >> $BUILD_LOG 2>&1; then
-              echo "::error::Kernel build failed"
-              cat $BUILD_LOG
-              exit 1
-            fi
+            echo "Image file not found, build may have failed"
+            exit 1
           fi
-      # Apply Linux patch
-      - name: Apply Linux Patch
+      - name: Apply patch_linux and Replace Kernel
         run: |
-          MODEL="${{ inputs.FEIL }}"
-          if [[ "$MODEL" != "oneplus_ace5" && "$MODEL" != "oneplus_13r" ]]; then
-            cd kernel_workspace/kernel_platform/common/out/arch/arm64/boot
-          else
-            cd kernel_workspace/kernel_platform/dist/
-          fi
+          cd kernel_workspace/kernel_platform/out-msm-kernel-${{ env.CPUD }}-gki/dist
           curl -LO https://github.com/ShirkNeko/SukiSU_KernelPatch_patch/releases/download/0.11-beta/patch_linux
           chmod +x patch_linux
-          if ! ./patch_linux; then
-            echo "::error::Failed to apply Linux patch"
-            exit 1
-          fi
+          ./patch_linux
           rm -f Image
           mv oImage Image
-      # Package with AnyKernel3
-      - name: Make AnyKernel3
-        env:
-          IMG_FILE: "${{ inputs.FEIL }}_Image_SukiSU_Ultra_${{ env.KSUVER }}_${{ inputs.ANDROID_VERSION }}_${{ inputs.KERNEL_VERSION }}-${{ env.BUILDDATE }}"
-          ANYKERNEL3_FILE: "${{ inputs.FEIL }}_SukiSU_Ultra_${{ env.KSUVER }}_${{ inputs.ANDROID_VERSION }}_${{ inputs.KERNEL_VERSION }}-${{ env.BUILDDATE }}"
+          cp Image $GITHUB_WORKSPACE/AnyKernel3/Image
+          cp Image $GITHUB_WORKSPACE/kernel_workspace/init_boot_Image.img
+      - name: Package AnyKernel3 (ZIP)
         run: |
-          git clone https://github.com/Kernel-SU/AnyKernel3.git --single-branch --depth=1 --no-tags
-          rm -rf ./AnyKernel3/.git
-          rm -rf ./AnyKernel3/push.sh
-          MODEL="${{ inputs.FEIL }}"
-          if [[ "$MODEL" != "oneplus_ace5" && "$MODEL" != "oneplus_13r" ]]; then
-            cp kernel_workspace/kernel_platform/common/out/arch/arm64/boot/Image ./AnyKernel3/
-          else
-            cp kernel_workspace/kernel_platform/dist/Image ./AnyKernel3/
-          fi
-      # Download SUSFS Module (CI)
-      - name: Download Latest SUSFS Module from CI
+          cd $GITHUB_WORKSPACE/AnyKernel3
+          zip -r ../AnyKernel3_KernelSU_${{ env.KSUVER }}_${{ env.FEIL }}.zip ./*
+          cd ..
+      - name: Package Original Image (ZIP)
         run: |
-          LATEST_RUN_ID=$(curl -s -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
-            "https://api.github.com/repos/sidex15/susfs4ksu-module/actions/runs?status=success" | \
-            jq -r '.workflow_runs[] | select(.head_branch == "v1.5.2+") | .id' | head -n 1)
-          if [ -z "$LATEST_RUN_ID" ]; then
-            echo "No successful run found for branch v1.5.2+"
-            exit 1
-          fi
-          ARTIFACT_URL=$(curl -s -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
-            "https://api.github.com/repos/sidex15/susfs4ksu-module/actions/runs/$LATEST_RUN_ID/artifacts" | \
-            jq -r '.artifacts[0].archive_download_url')
-          curl -L -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" -o ksu_module_susfs_1.5.2+_CI.zip "$ARTIFACT_URL"
-          cp ksu_module_susfs_1.5.2+_CI.zip ./AnyKernel3/
-      # Download Latest SukiSU-Ultra APK from CI
-      - name: Download Latest SukiSU-Ultra APK from CI
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          echo "Fetching latest workflow run ID..."
-          run_id=$(gh api \
-            "repos/SukiSU-Ultra/SukiSU-Ultra/actions/workflows/build-manager.yml/runs?branch=main&status=success&per_page=1" \
-            --jq '.workflow_runs[0].id')
-          if [[ -z "$run_id" ]]; then
-            echo "::error::No successful workflow run found for branch main."
-            exit 1
-          fi
-          echo "Run ID: $run_id"
-          
-          echo "Fetching artifact URL..."
-          artifact_url=$(gh api \
-            "repos/SukiSU-Ultra/SukiSU-Ultra/actions/runs/$run_id/artifacts" \
-            --jq '.artifacts[] | select(.name == "manager") | .archive_download_url')
-          if [[ -z "$artifact_url" ]]; then
-            echo "::error::No manager artifact found for run ID $run_id."
-            exit 1
-          fi
-          echo "Artifact URL: $artifact_url"
-          
-          echo "Downloading artifact..."
-          curl -L -H "Authorization: token $GITHUB_TOKEN" -o manager.zip "$artifact_url"
-          if [[ ! -f manager.zip ]]; then
-            echo "::error::Failed to download manager.zip."
-            exit 1
-          fi
-          
-          echo "Listing contents of manager.zip..."
-          unzip -l manager.zip
-          if ! unzip -l manager.zip | grep -q "\.apk$"; then
-            echo "::error::No APK file found in manager.zip. Contents:"
-            unzip -l manager.zip
-            exit 1
-          fi
-          
-          echo "Extracting APK to AnyKernel3 directory..."
-          mkdir -p ./AnyKernel3
-          unzip -j manager.zip "*.apk" -d ./AnyKernel3/
-          if [[ ! -f ./AnyKernel3/*.apk ]]; then
-            echo "::error::No APK file extracted to AnyKernel3 directory. Contents of AnyKernel3:"
-            ls -la ./AnyKernel3
-            exit 1
-          fi
-          # Rename the extracted APK for consistency
-          mv ./AnyKernel3/*.apk ./AnyKernel3/SukiSU-Ultra.apk
-          if [[ ! -f ./AnyKernel3/SukiSU-Ultra.apk ]]; then
-            echo "::error::Failed to rename APK to SukiSU-Ultra.apk."
-            ls -la ./AnyKernel3
-            exit 1
-          fi
-          echo "APK successfully extracted to AnyKernel3/SukiSU-Ultra.apk"
-      # Configure AnyKernel3 to install SUSFS module and SukiSU-Ultra APK
-      - name: Configure AnyKernel3 for SUSFS module and SukiSU-Ultra APK installation
-        run: |
-          cd AnyKernel3
-          if [ ! -f anykernel.sh ]; then
-            echo "::error::anykernel.sh not found in AnyKernel3 directory"
-            exit 1
-          fi
-          APK_FILE=$(find . -maxdepth 1 -type f -name "SukiSU-Ultra.apk" | head -n 1)
-          if [ -z "$APK_FILE" ]; then
-            echo "::error::No SukiSU-Ultra.apk file found in AnyKernel3 directory. Contents of AnyKernel3:"
-            ls -la
-            exit 1
-          fi
-          echo "Found APK: $APK_FILE"
-          cat << 'EOF' >> anykernel.sh
-          # Install SUSFS module
-          ui_print "Installing SUSFS module..."
-          unzip -o ksu_module_susfs_1.5.2+_CI.zip -d /tmp/susfs_module
-          insmod /tmp/susfs_module/susfs.ko || ui_print "Failed to load SUSFS module"
-          rm -rf /tmp/susfs_module
-          # Install SukiSU-Ultra APK
-          ui_print "Installing SukiSU-Ultra APK..."
-          pm install "$APK_FILE" || ui_print "Failed to install SukiSU-Ultra APK"
-          EOF
-          echo "Updated anykernel.sh to install SUSFS module and SukiSU-Ultra APK"
-      # Upload AnyKernel3
-      - name: Upload AnyKernel3
-        env:
-          ANYKERNEL3_FILE: "${{ inputs.FEIL }}_SukiSU_Ultra_${{ env.KSUVER }}_${{ inputs.ANDROID_VERSION }}_${{ inputs.KERNEL_VERSION }}-${{ env.BUILDDATE }}"
+          cd $GITHUB_WORKSPACE/kernel_workspace
+          zip -r ../Image_KernelSU_${{ env.KSUVER }}_${{ env.FEIL }}.zip ./init_boot_Image.img
+      - name: Upload ZIP Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ env.ANYKERNEL3_FILE }}
-          path: ./AnyKernel3/*
-      # Upload image for Ace 5 and 13r
-      - name: Upload Image (Ace 5 / 13r)
-        if: ${{ inputs.FEIL == 'oneplus_ace5' || inputs.FEIL == 'oneplus_13r' }}
-        env:
-          IMG_FILE: "${{ inputs.FEIL }}_Image_SukiSU_Ultra_${{ env.KSUVER }}_${{ inputs.ANDROID_VERSION }}_${{ inputs.KERNEL_VERSION }}-${{ env.BUILDDATE }}"
-        uses: actions/upload-artifact@v4
-        with:
-          name: ${{ env.IMG_FILE }}
-          path: kernel_workspace/kernel_platform/dist/Image
-      # Upload image for other models
-      - name: Upload Image
-        if: ${{ inputs.FEIL != 'oneplus_ace5' && inputs.FEIL != 'oneplus_13r' }}
-        env:
-          IMG_FILE: "${{ inputs.FEIL }}_Image_SukiSU_Ultra_${{ env.KSUVER }}_${{ inputs.ANDROID_VERSION }}_${{ inputs.KERNEL_VERSION }}-${{ env.BUILDDATE }}"
-        uses: actions/upload-artifact@v4
-        with:
-          name: ${{ env.IMG_FILE }}
-          path: kernel_workspace/kernel_platform/common/out/arch/arm64/boot/Image
-      # Download artifacts
-      - name: Download artifacts
+          name: Kernel_ZIP_Artifacts
+          path: |
+            *.zip
+          retention-days: 1
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      packages: write
+      actions: read
+      
+    steps:
+      - name: Download ZIP Artifacts
         uses: actions/download-artifact@v4
         with:
-          path: download
-      # Zip artifacts
-      - name: Zip AnyKernel3
-        env:
-          IMG_FILE: "${{ inputs.FEIL }}_Image_SukiSU_Ultra_${{ env.KSUVER }}_${{ inputs.ANDROID_VERSION }}_${{ inputs.KERNEL_VERSION }}-${{ env.BUILDDATE }}"
-          ANYKERNEL3_FILE: "${{ inputs.FEIL }}_SukiSU_Ultra_${{ env.KSUVER }}_${{ inputs.ANDROID_VERSION }}_${{ inputs.KERNEL_VERSION }}-${{ env.BUILDDATE }}"
-        run: |
-          cd download
-          cd ${{ env.IMG_FILE }} ; zip -r ../${{ env.IMG_FILE }}.zip . * ; cd ..
-          cd ${{ env.ANYKERNEL3_FILE }} ; zip -r ../${{ env.ANYKERNEL3_FILE }}.zip . * ; cd ..
-      # Upload build log on failure
-      - name: Upload build log
-        if: failure()
-        uses: actions/upload-artifact@v4
+          name: Kernel_ZIP_Artifacts
+          path: ./release_zips
+         
+      - name: Create Release
+        id: create_release
+        uses: softprops/action-gh-release@v1
         with:
-          name: build-log
-          path: ${{ env.BUILD_LOG }}
-      # Clean up
-      - name: Cleanup workspace
-        run: |
-          rm -rf kernel_workspace
-          rm -rf download
-          rm -f ${{ env.BUILD_LOG }}
+          tag_name: "build-${{ github.run_id }}"
+          name: "OnePlus_ACE5 Build ${{ github.run_number }}"
+          body: |
+            Daily automatic build of SukiSU-Ultra kernel
+            - Device: OnePlus ACE5
+            - Features: KernelSU+SUSFS+VFS+PatchModule
+            - Build Time: ${{ github.event.repository.updated_at }}
+            - Kernel Version: ${{ needs.build.outputs.ksuver }}
+            - Recommended Manager: [SukiSU-Ultra](https://github.com/ShirkNeko/SukiSU-Ultra/releases)
+            - No need to update if the kernel version hasn’t changed!
+            - AnyKernel3 file is flashed via Recovery/TWRP
+            - Image file is extracted and flashed via Fastboot
+          draft: false
+          prerelease: false
+          files: |
+            release_zips/AnyKernel3_KernelSU_*.zip
+            release_zips/Image_KernelSU_*.zip
+      - name: Clean Up Old Releases
+        uses: dev-drprasad/delete-older-releases@v0.3.4
+        continue-on-error: true
+        timeout-minutes: 5
+        with:
+          keep_latest: ${{ env.RETENTION_COUNT }}
+          delete_tags: true
+          delete_tag_pattern: 'build-*'
+        env:
+          GITHUB_TOKEN: ${{ secrets.github.token }}
