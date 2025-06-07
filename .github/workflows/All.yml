@@ -442,6 +442,18 @@ jobs:
             -e 's/CONFIG_OPLUS_LOCK_TORTURE=[ym]/CONFIG_OPLUS_LOCK_TORTURE=n/' \
             -e 's/CONFIG_SOC_TOPOLOGY_TEST=[ym]/CONFIG_SOC_TOPOLOGY_TEST=n/' \
             -e 's/CONFIG_SOC_UTILS_TEST=[ym]/CONFIG_SOC_UTILS_TEST=n/' {} \;
+            
+      - name: Enable lto=thin For Fast Build
+        if: ${{ github.event.inputs.FAST_BUILD == 'true' }}
+        run: |
+          cd kernel_workspace/kernel_platform
+          DEFCONFIG=./common/arch/arm64/configs/gki_defconfig
+          echo "Enabling ThinLTO in $DEFCONFIG"
+          sed -i 's/^CONFIG_LTO=n/CONFIG_LTO=y/' "$DEFCONFIG"
+          sed -i 's/^CONFIG_LTO_CLANG_FULL=y/CONFIG_LTO_CLANG_THIN=y/' "$DEFCONFIG"
+          sed -i 's/^CONFIG_LTO_CLANG_NONE=y/CONFIG_LTO_CLANG_THIN=y/' "$DEFCONFIG"
+          grep -q '^CONFIG_LTO_CLANG_THIN=y' "$DEFCONFIG" || echo 'CONFIG_LTO_CLANG_THIN=y' >> "$DEFCONFIG"
+            
       - name: Enable lto=thin For FAST 5.15
         if: ${{ github.event.inputs.KERNEL_VERSION == '5.15' && github.event.inputs.FAST_BUILD == 'true' }}
         run: |
