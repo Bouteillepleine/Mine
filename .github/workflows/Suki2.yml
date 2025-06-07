@@ -104,7 +104,6 @@ jobs:
             echo "$VALID_COMBINATIONS" | grep "${{ inputs.FEIL }}" || echo "None available"
             exit 1
           fi
-
       # Set human-readable model name
       - name: Set formatted model name
         run: |
@@ -119,7 +118,6 @@ jobs:
             *) MODEL_NAME="Unknown Model" ;;
           esac
           echo "FEIL_NAME=$MODEL_NAME" >> "$GITHUB_ENV"
-
       # Free up disk space
       - name: Maximize build space
         uses: easimon/maximize-build-space@master
@@ -130,19 +128,16 @@ jobs:
           remove-android: 'true'
           remove-haskell: 'true'
           remove-codeql: 'true'
-
       # Configure Git
       - name: Configure Git
         run: |
           git config --global user.name "O+builder"
           git config --global user.email "O+builder@yahoo.com"
-
       # Install dependencies
       - name: Install dependencies
         run: |
           sudo apt update && sudo apt upgrade -y
           sudo apt install -y python3 git curl libelf-dev lld ccache jq
-
       # Restore ccache
       - name: Restore ccache
         uses: actions/cache@v3
@@ -151,14 +146,12 @@ jobs:
           key: ccache-${{ runner.os }}-${{ inputs.CPU }}-${{ inputs.FEIL }}-${{ inputs.KERNEL_VERSION }}
           restore-keys: |
             ccache-${{ runner.os }}-${{ inputs.CPU }}-${{ inputs.FEIL }}
-
       # Install repo tool
       - name: Install repo tool
         run: |
           curl https://storage.googleapis.com/git-repo-downloads/repo > ~/repo
           chmod a+x ~/repo
           sudo mv ~/repo /usr/local/bin/repo
-
       # Sync kernel source
       - name: Initialize repo and sync
         run: |
@@ -167,7 +160,6 @@ jobs:
           repo --trace sync -c -j$(nproc --all) --no-tags
           rm kernel_platform/common/android/abi_gki_protected_exports_* || echo "No protected exports!"
           rm kernel_platform/msm-kernel/android/abi_gki_protected_exports_* || echo "No protected exports!"      
-
       # Set up SukiSU
       - name: Set up SukiSU
         run: |
@@ -178,7 +170,6 @@ jobs:
           echo "KSUVER=$KSU_VERSION" >> $GITHUB_ENV
           export KSU_VERSION=$KSU_VERSION
           sed -i "s/DKSU_VERSION=12800/DKSU_VERSION=${KSU_VERSION}/" kernel/Makefile
-        
       # Set up SUSFS and apply patches
       - name: Set up susfs
         run: |
@@ -189,13 +180,11 @@ jobs:
           cp ../susfs4ksu/kernel_patches/50_add_susfs_in_gki-${{ inputs.ANDROID_VERSION }}-${{ inputs.KERNEL_VERSION }}.patch ./common/
           cp ../susfs4ksu/kernel_patches/fs/* ./common/fs/
           cp ../susfs4ksu/kernel_patches/include/linux/* ./common/include/linux/
-          
           # Copy LZ4K files
           cp -r ../SukiSU_patch/other/zram/lz4k/include/linux/* ./common/include/linux
           cp -r ../SukiSU_patch/other/zram/lz4k/lib/* ./common/lib
           cp -r ../SukiSU_patch/other/zram/lz4k/crypto/* ./common/crypto
           cp -r ../SukiSU_patch/other/zram/lz4k_oplus ./common/lib/
-          
           # Test and apply patches
           cd ./common
           MODEL="${{ inputs.FEIL }}"
@@ -231,7 +220,6 @@ jobs:
             exit 1
           fi
           echo "Patch completed"
-
       # Apply HMBird patch
       - name: Apply HMBird GKI patch
         if: ${{ inputs.FEIL != 'oneplus_ace5' && inputs.FEIL != 'oneplus_13r' }}
@@ -308,7 +296,6 @@ jobs:
           cd ../../../
           git add -A
           git commit -m "Add HMBird GKI patch" || echo "No changes to commit"
-
       # Apply LZ4KD patches
       - name: Apply lz4kd Patches
         if: ${{ inputs.enable_feature_y }}
@@ -325,7 +312,6 @@ jobs:
             exit 1
           fi
           echo 'lz4kd_patch completed'
-          
           cp ../../SukiSU_patch/other/zram/zram_patch/${{ inputs.KERNEL_VERSION }}/lz4k_oplus.patch ./
           echo "Applying lz4k_oplus patch"
           if ! patch --dry-run -p1 -F 3 < lz4k_oplus.patch; then
@@ -337,7 +323,6 @@ jobs:
             exit 1
           fi
           echo 'lz4k_oplus_patch completed'
-
       # Configure kernel
       - name: Add SUSFS Configuration Settings
         run: |
@@ -403,7 +388,6 @@ jobs:
           sed -i 's/check_defconfig//' ./common/build.config.gki
           cd common
           git add -A && git commit -a -m "Add SUSFS, wakelock blocker, and optimization configuration" || echo "No changes to commit"
-
       # Update Kconfig
       - name: Update Kconfig for blacklisted modules
         run: |
@@ -416,7 +400,6 @@ jobs:
             -e 's/CONFIG_OPLUS_LOCK_TORTURE=[ym]/CONFIG_OPLUS_LOCK_TORTURE=n/' \
             -e 's/CONFIG_SOC_TOPOLOGY_TEST=[ym]/CONFIG_SOC_TOPOLOGY_TEST=n/' \
             -e 's/CONFIG_SOC_UTILS_TEST=[ym]/CONFIG_SOC_UTILS_TEST=n/' {} \;
-
       # Enable KPM
       - name: Add KPM Configuration Settings
         if: ${{ inputs.enable_feature_x }}
@@ -426,14 +409,12 @@ jobs:
           sudo sed -i 's/check_defconfig//' ./common/build.config.gki
           cd common
           git add -A && git commit -a -m "BUILD Kernel"
-
       # Set custom kernel name
       - name: Add kernel custom name
         run: |
           cd kernel_workspace/kernel_platform
           sed -i 's/${scm_version}//' ./common/scripts/setlocalversion
           sudo sed -i 's/-4k/${{ inputs.KERNEL_NAME }}/g' ./common/arch/arm64/configs/gki_defconfig
-
       # Add Fengchi scheduler
       - name: Add Fengchi
         if: ${{ inputs.KERNEL_VERSION == '6.6' }}
@@ -444,14 +425,12 @@ jobs:
           rm -rf ./sched_ext/.git
           cd common/kernel/sched
           sed -i.bak '/# include "ext.c"/a\# include "hmbird_sched_proc_main.c"\n#endif\n\n#ifdef CONFIG_SLIM_SCHED\n# include "slim_sysctl.c"' build_policy.c
-
       # Set build timestamp                
       - name: Set Kernel build timestamp
         run: |
           export SOURCE_DATE_EPOCH=$(date -d "${{ inputs.KERNEL_TIME }}" +%s)
           echo "SOURCE_DATE_EPOCH=$SOURCE_DATE_EPOCH" >> $GITHUB_ENV
           echo "BUILDDATE=$(date +'%Y%m%d')" >> $GITHUB_ENV
-
       # Build kernel
       - name: Build Kernel
         run: |
@@ -476,7 +455,6 @@ jobs:
               exit 1
             fi
           fi
-
       # Apply Linux patch
       - name: Apply Linux Patch
         run: |
@@ -494,7 +472,6 @@ jobs:
           fi
           rm -f Image
           mv oImage Image
-
       # Package with AnyKernel3
       - name: Make AnyKernel3
         env:
@@ -510,7 +487,6 @@ jobs:
           else
             cp kernel_workspace/kernel_platform/dist/Image ./AnyKernel3/
           fi
-
       # Download SUSFS Module (CI)
       - name: Download Latest SUSFS Module from CI
         run: |
@@ -526,7 +502,62 @@ jobs:
             jq -r '.artifacts[0].archive_download_url')
           curl -L -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" -o ksu_module_susfs_1.5.2+_CI.zip "$ARTIFACT_URL"
           cp ksu_module_susfs_1.5.2+_CI.zip ./AnyKernel3/
-
+      # Download Latest SukiSU-Ultra APK from CI
+      - name: Download Latest SukiSU-Ultra APK from CI
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "Fetching latest workflow run ID..."
+          run_id=$(gh api \
+            "repos/SukiSU-Ultra/SukiSU-Ultra/actions/workflows/build-manager.yml/runs?branch=main&status=success&per_page=1" \
+            --jq '.workflow_runs[0].id')
+          if [[ -z "$run_id" ]]; then
+            echo "::error::No successful workflow run found for branch main."
+            exit 1
+          fi
+          echo "Run ID: $run_id"
+          
+          echo "Fetching artifact URL..."
+          artifact_url=$(gh api \
+            "repos/SukiSU-Ultra/SukiSU-Ultra/actions/runs/$run_id/artifacts" \
+            --jq '.artifacts[] | select(.name == "manager") | .archive_download_url')
+          if [[ -z "$artifact_url" ]]; then
+            echo "::error::No manager artifact found for run ID $run_id."
+            exit 1
+          fi
+          echo "Artifact URL: $artifact_url"
+          
+          echo "Downloading artifact..."
+          curl -L -H "Authorization: token $GITHUB_TOKEN" -o manager.zip "$artifact_url"
+          if [[ ! -f manager.zip ]]; then
+            echo "::error::Failed to download manager.zip."
+            exit 1
+          fi
+          
+          echo "Listing contents of manager.zip..."
+          unzip -l manager.zip
+          if ! unzip -l manager.zip | grep -q "\.apk$"; then
+            echo "::error::No APK file found in manager.zip. Contents:"
+            unzip -l manager.zip
+            exit 1
+          fi
+          
+          echo "Extracting APK to AnyKernel3 directory..."
+          mkdir -p ./AnyKernel3
+          unzip -j manager.zip "*.apk" -d ./AnyKernel3/
+          if [[ ! -f ./AnyKernel3/*.apk ]]; then
+            echo "::error::No APK file extracted to AnyKernel3 directory. Contents of AnyKernel3:"
+            ls -la ./AnyKernel3
+            exit 1
+          fi
+          # Rename the extracted APK for consistency
+          mv ./AnyKernel3/*.apk ./AnyKernel3/SukiSU-Ultra.apk
+          if [[ ! -f ./AnyKernel3/SukiSU-Ultra.apk ]]; then
+            echo "::error::Failed to rename APK to SukiSU-Ultra.apk."
+            ls -la ./AnyKernel3
+            exit 1
+          fi
+          echo "APK successfully extracted to AnyKernel3/SukiSU-Ultra.apk"
       # Configure AnyKernel3 to install SUSFS module and SukiSU-Ultra APK
       - name: Configure AnyKernel3 for SUSFS module and SukiSU-Ultra APK installation
         run: |
@@ -535,12 +566,13 @@ jobs:
             echo "::error::anykernel.sh not found in AnyKernel3 directory"
             exit 1
           fi
-          # Find the APK file in the AnyKernel3 directory
-          APK_FILE=$(find . -maxdepth 1 -type f -name "*.apk" | head -n 1)
+          APK_FILE=$(find . -maxdepth 1 -type f -name "SukiSU-Ultra.apk" | head -n 1)
           if [ -z "$APK_FILE" ]; then
-            echo "::error::No APK file found in AnyKernel3 directory"
+            echo "::error::No SukiSU-Ultra.apk file found in AnyKernel3 directory. Contents of AnyKernel3:"
+            ls -la
             exit 1
           fi
+          echo "Found APK: $APK_FILE"
           cat << 'EOF' >> anykernel.sh
           # Install SUSFS module
           ui_print "Installing SUSFS module..."
@@ -549,12 +581,9 @@ jobs:
           rm -rf /tmp/susfs_module
           # Install SukiSU-Ultra APK
           ui_print "Installing SukiSU-Ultra APK..."
-          unzip -o "$(basename "$APK_FILE")" -d /tmp/sukisu_apk
-          pm install /tmp/sukisu_apk/"$(basename "$APK_FILE")" || ui_print "Failed to install SukiSU-Ultra APK"
-          rm -rf /tmp/sukisu_apk
+          pm install "$APK_FILE" || ui_print "Failed to install SukiSU-Ultra APK"
           EOF
           echo "Updated anykernel.sh to install SUSFS module and SukiSU-Ultra APK"
-
       # Upload AnyKernel3
       - name: Upload AnyKernel3
         env:
@@ -563,7 +592,6 @@ jobs:
         with:
           name: ${{ env.ANYKERNEL3_FILE }}
           path: ./AnyKernel3/*
-
       # Upload image for Ace 5 and 13r
       - name: Upload Image (Ace 5 / 13r)
         if: ${{ inputs.FEIL == 'oneplus_ace5' || inputs.FEIL == 'oneplus_13r' }}
@@ -573,7 +601,6 @@ jobs:
         with:
           name: ${{ env.IMG_FILE }}
           path: kernel_workspace/kernel_platform/dist/Image
-
       # Upload image for other models
       - name: Upload Image
         if: ${{ inputs.FEIL != 'oneplus_ace5' && inputs.FEIL != 'oneplus_13r' }}
@@ -583,13 +610,11 @@ jobs:
         with:
           name: ${{ env.IMG_FILE }}
           path: kernel_workspace/kernel_platform/common/out/arch/arm64/boot/Image
-
       # Download artifacts
       - name: Download artifacts
         uses: actions/download-artifact@v4
         with:
           path: download
-
       # Zip artifacts
       - name: Zip AnyKernel3
         env:
@@ -599,7 +624,6 @@ jobs:
           cd download
           cd ${{ env.IMG_FILE }} ; zip -r ../${{ env.IMG_FILE }}.zip . * ; cd ..
           cd ${{ env.ANYKERNEL3_FILE }} ; zip -r ../${{ env.ANYKERNEL3_FILE }}.zip . * ; cd ..
-
       # Upload build log on failure
       - name: Upload build log
         if: failure()
@@ -607,32 +631,9 @@ jobs:
         with:
           name: build-log
           path: ${{ env.BUILD_LOG }}
-
       # Clean up
       - name: Cleanup workspace
         run: |
           rm -rf kernel_workspace
           rm -rf download
           rm -f ${{ env.BUILD_LOG }}
-
-      # Download SukiSU Ultra APK (CI)
-      - name: Download Latest SukiSU-Ultra APK from CI
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          run_id=$(gh api \
-            "repos/SukiSU-Ultra/SukiSU-Ultra/actions/workflows/build-manager.yml/runs?branch=main&status=success&per_page=1" \
-            --jq '.workflow_runs[0].id')
-          if [[ -z "$run_id" ]]; then
-            echo "No successful workflow run found."
-            exit 1
-          fi
-          artifact_url=$(gh api \
-            "repos/SukiSU-Ultra/SukiSU-Ultra/actions/runs/$run_id/artifacts" \
-            --jq '.artifacts[] | select(.name == "manager") | .archive_download_url')
-          if [[ -z "$artifact_url" ]]; then
-            echo "No manager artifact found."
-            exit 1
-          fi
-          curl -L -H "Authorization: token $GITHUB_TOKEN" -o manager.zip "$artifact_url"
-          unzip -j manager.zip "*.apk" -d ./AnyKernel3/
