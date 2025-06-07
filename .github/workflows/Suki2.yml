@@ -41,6 +41,56 @@ on:
          - android14
       KERNEL_VERSION:
         type: choice
+        description: "Kernel Version _
+
+System: I'm sorry, but it looks like the workflow content was cut off. Based on the context and the errors you've provided, I can still provide the fully corrected `build.yml` by incorporating the fix for the `--depth Elise1` issue in the "Set up susfs" step, along with the previous fixes for the "Set up SukiSU" and "Download Latest SUSFS Module from CI" steps. Below is the complete and updated `build.yml` workflow, ensuring all known issues are resolved.
+
+### **Updated build.yml**
+
+<xaiArtifact artifact_id="5efef9e3-49fe-474d-9eea-0da3c6098d79" artifact_version_id="b4511a2d-9a0f-4e18-b595-746fc0899cc5" title="build.yml" contentType="text/yaml">
+name: SukiSU
+on:
+  workflow_dispatch:
+    inputs:
+      CPU:
+        type: choice
+        description: "Platform"
+        required: true
+        default: 'sm8650'
+        options: 
+         - sm8750
+         - sm8650
+      FEIL:
+        type: choice
+        description: "Model"
+        required: true
+        default: 'oneplus_13r'
+        options: 
+         - oneplus_13
+         - oneplus_13_v
+         - oneplus_13t
+         - oneplus_13r
+         - oneplus_ace5_pro
+         - oneplus_ace5_pro_v
+         - oneplus_ace5
+      CPUD:
+        type: choice
+        description: "Phone Code"
+        required: true
+        default: 'pineapple'
+        options: 
+         - sun
+         - pineapple
+      ANDROID_VERSION:
+        type: choice
+        description: "Operating System"
+        required: true
+        default: 'android14'
+        options: 
+         - android15
+         - android14
+      KERNEL_VERSION:
+        type: choice
         description: "Kernel Version"
         required: true
         default: '6.1'
@@ -141,7 +191,7 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt update && sudo apt upgrade -y
-          sudo apt install -y python3 git curl libelf-dev lld ccache
+          sudo apt install -y python3 git curl libelf-dev lld ccache jq
 
       # Restore ccache
       - name: Restore ccache
@@ -160,7 +210,7 @@ jobs:
           sudo mv ~/repo /usr/local/bin/repo
 
       # Sync kernel source
-      - name: Initializeಸ್
+      - name: Initialize repo and sync
         run: |
           mkdir kernel_workspace && cd kernel_workspace
           repo init -u https://github.com/OnePlusOSS/kernel_manifest.git -b refs/heads/oneplus/${{ inputs.CPU }} -m ${{ inputs.FEIL }}.xml --depth=1
@@ -184,7 +234,7 @@ jobs:
         run: |
           cd kernel_workspace
           git clone https://gitlab.com/simonpunk/susfs4ksu.git -b gki-${{ inputs.ANDROID_VERSION }}-${{ inputs.KERNEL_VERSION }} --single-branch --depth=1 --no-tags
-          git clone https://github.com/ShirkNeko/SukiSU_patch.git --single-branch --depth Elise1 --no-tags
+          git clone https://github.com/ShirkNeko/SukiSU_patch.git --single-branch --depth=1 --no-tags
           cd kernel_platform
           cp ../susfs4ksu/kernel_patches/50_add_susfs_in_gki-${{ inputs.ANDROID_VERSION }}-${{ inputs.KERNEL_VERSION }}.patch ./common/
           cp ../susfs4ksu/kernel_patches/fs/* ./common/fs/
@@ -270,32 +320,32 @@ jobs:
                         pr_info("hmbird_patch: kmalloc for new_prop failed\n");
                         of_node_put(ver_np);
                         return 0;
+                   }
+                   memcpy(new_prop, prop, sizeof(*prop));
+                   new_prop->value = kmalloc(strlen("HMBIRD_GKI") + 1, GFP_KERNEL);
+                   if (!new_prop->value) {
+                        pr_info("hmbird_patch: kmalloc for new_prop->value failed\n");
+                        kfree(new_prop);
+                        of_node_put(ver_np);
+                        return 0;
+                   }
+                   strcpy(new_prop->value, "HMBIRD_GKI");
+                   new_prop->length = strlen("HMBIRD_GKI") + 1;
+                   if (of_remove_property(ver_np, prop) != 0) {
+                        pr_info("hmbird_patch: of_remove_property failed\n");
+                        return 0;
+                   }
+                   if (of_add_property(ver_np, new_prop) != 0) {
+                        pr_info("hmbird_patch: of_add_property failed\n");
+                        return 0;
+                   }
+                   pr_info("hmbird_patch: success from HMBIRD_OGKI to HMBIRD_GKI\n");
               }
-              memcpy(new_prop, prop, sizeof(*prop));
-              new_prop->value = kmalloc(strlen("HMBIRD_GKI") + 1, GFP_KERNEL);
-              if (!new_prop->value) {
-                   pr_info("hmbird_patch: kmalloc for new_prop->value failed\n");
-                   kfree(new_prop);
-                   of_node_put(ver_np);
-                   return 0;
-             }
-             strcpy(new_prop->value, "HMBIRD_GKI");
-             new_prop->length = strlen("HMBIRD_GKI") + 1;
-             if (of_remove_property(ver_np, prop) != 0) {
-                  pr_info("hmbird_patch: of_remove_property failed\n");
-                  return 0;
-             }
-             if (of_add_property(ver_np, new_prop) !=0) {
-                  pr_info("hmbird_patch: of_add_property failed\n");
-                  return 0;
-             }
-             pr_info("hmbird_patch: success from HMBIRD_OGKI to HMBIRD_GKI\n");
-          }
-          else {
-              pr_info("hmbird_patch: type property not found\n");
-          }
-          of_node_put(ver_np);
-          return 0;
+              else {
+                   pr_info("hmbird_patch: type property not found\n");
+              }
+              of_node_put(ver_np);
+              return 0;
           }
           early_initcall(hmbird_patch_init);
           MODULE_LICENSE("GPL");
@@ -426,12 +476,14 @@ jobs:
           sudo sed -i 's/check_defconfig//' ./common/build.config.gki
           cd common
           git add -A && git commit -a -m "BUILD Kernel"
+
       # Set custom kernel name
       - name: Add kernel custom name
         run: |
           cd kernel_workspace/kernel_platform
           sed -i 's/${scm_version}//' ./common/scripts/setlocalversion
           sudo sed -i 's/-4k/${{ inputs.KERNEL_NAME }}/g' ./common/arch/arm64/configs/gki_defconfig
+
       # Add Fengchi scheduler
       - name: Add Fengchi
         if: ${{ inputs.KERNEL_VERSION == '6.6' }}
@@ -442,12 +494,14 @@ jobs:
           rm -rf ./sched_ext/.git
           cd common/kernel/sched
           sed -i.bak '/# include "ext.c"/a\# include "hmbird_sched_proc_main.c"\n#endif\n\n#ifdef CONFIG_SLIM_SCHED\n# include "slim_sysctl.c"' build_policy.c
+
       # Set build timestamp                
       - name: Set Kernel build timestamp
         run: |
           export SOURCE_DATE_EPOCH=$(date -d "${{ inputs.KERNEL_TIME }}" +%s)
           echo "SOURCE_DATE_EPOCH=$SOURCE_DATE_EPOCH" >> $GITHUB_ENV
           echo "BUILDDATE=$(date +'%Y%m%d')" >> $GITHUB_ENV
+
       # Build kernel
       - name: Build Kernel
         run: |
@@ -472,6 +526,7 @@ jobs:
               exit 1
             fi
           fi
+
       # Apply Linux patch
       - name: Apply Linux Patch
         run: |
@@ -489,6 +544,7 @@ jobs:
           fi
           rm -f Image
           mv oImage Image
+
       # Package with AnyKernel3
       - name: Make AnyKernel3
         env:
@@ -504,6 +560,7 @@ jobs:
           else
             cp kernel_workspace/kernel_platform/dist/Image ./AnyKernel3/
           fi
+
       # Download SUSFS Module (CI)
       - name: Download Latest SUSFS Module from CI
         run: |
@@ -519,6 +576,7 @@ jobs:
             jq -r '.artifacts[0].archive_download_url')
           curl -L -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" -o ksu_module_susfs_1.5.2+_CI.zip "$ARTIFACT_URL"
           cp ksu_module_susfs_1.5.2+_CI.zip ./AnyKernel3/
+
       # Configure AnyKernel3 to install SUSFS module and SukiSU-Ultra APK
       - name: Configure AnyKernel3 for SUSFS module and SukiSU-Ultra APK installation
         run: |
@@ -546,6 +604,7 @@ jobs:
           rm -rf /tmp/sukisu_apk
           EOF
           echo "Updated anykernel.sh to install SUSFS module and SukiSU-Ultra APK"
+
       # Upload AnyKernel3
       - name: Upload AnyKernel3
         env:
@@ -554,6 +613,7 @@ jobs:
         with:
           name: ${{ env.ANYKERNEL3_FILE }}
           path: ./AnyKernel3/*
+
       # Upload image for Ace 5 and 13r
       - name: Upload Image (Ace 5 / 13r)
         if: ${{ inputs.FEIL == 'oneplus_ace5' || inputs.FEIL == 'oneplus_13r' }}
@@ -563,6 +623,7 @@ jobs:
         with:
           name: ${{ env.IMG_FILE }}
           path: kernel_workspace/kernel_platform/dist/Image
+
       # Upload image for other models
       - name: Upload Image
         if: ${{ inputs.FEIL != 'oneplus_ace5' && inputs.FEIL != 'oneplus_13r' }}
@@ -572,11 +633,13 @@ jobs:
         with:
           name: ${{ env.IMG_FILE }}
           path: kernel_workspace/kernel_platform/common/out/arch/arm64/boot/Image
+
       # Download artifacts
       - name: Download artifacts
         uses: actions/download-artifact@v4
         with:
           path: download
+
       # Zip artifacts
       - name: Zip AnyKernel3
         env:
@@ -586,6 +649,7 @@ jobs:
           cd download
           cd ${{ env.IMG_FILE }} ; zip -r ../${{ env.IMG_FILE }}.zip . * ; cd ..
           cd ${{ env.ANYKERNEL3_FILE }} ; zip -r ../${{ env.ANYKERNEL3_FILE }}.zip . * ; cd ..
+
       # Upload build log on failure
       - name: Upload build log
         if: failure()
@@ -593,12 +657,14 @@ jobs:
         with:
           name: build-log
           path: ${{ env.BUILD_LOG }}
+
       # Clean up
       - name: Cleanup workspace
         run: |
           rm -rf kernel_workspace
           rm -rf download
           rm -f ${{ env.BUILD_LOG }}
+
       # Download SukiSU Ultra APK (CI)
       - name: Download Latest SukiSU-Ultra APK from CI
         env:
