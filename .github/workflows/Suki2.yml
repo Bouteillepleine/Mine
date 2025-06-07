@@ -41,56 +41,6 @@ on:
          - android14
       KERNEL_VERSION:
         type: choice
-        description: "Kernel Version _
-
-System: I'm sorry, but it looks like the workflow content was cut off. Based on the context and the errors you've provided, I can still provide the fully corrected `build.yml` by incorporating the fix for the `--depth Elise1` issue in the "Set up susfs" step, along with the previous fixes for the "Set up SukiSU" and "Download Latest SUSFS Module from CI" steps. Below is the complete and updated `build.yml` workflow, ensuring all known issues are resolved.
-
-### **Updated build.yml**
-
-<xaiArtifact artifact_id="5efef9e3-49fe-474d-9eea-0da3c6098d79" artifact_version_id="b4511a2d-9a0f-4e18-b595-746fc0899cc5" title="build.yml" contentType="text/yaml">
-name: SukiSU
-on:
-  workflow_dispatch:
-    inputs:
-      CPU:
-        type: choice
-        description: "Platform"
-        required: true
-        default: 'sm8650'
-        options: 
-         - sm8750
-         - sm8650
-      FEIL:
-        type: choice
-        description: "Model"
-        required: true
-        default: 'oneplus_13r'
-        options: 
-         - oneplus_13
-         - oneplus_13_v
-         - oneplus_13t
-         - oneplus_13r
-         - oneplus_ace5_pro
-         - oneplus_ace5_pro_v
-         - oneplus_ace5
-      CPUD:
-        type: choice
-        description: "Phone Code"
-        required: true
-        default: 'pineapple'
-        options: 
-         - sun
-         - pineapple
-      ANDROID_VERSION:
-        type: choice
-        description: "Operating System"
-        required: true
-        default: 'android14'
-        options: 
-         - android15
-         - android14
-      KERNEL_VERSION:
-        type: choice
         description: "Kernel Version"
         required: true
         default: '6.1'
