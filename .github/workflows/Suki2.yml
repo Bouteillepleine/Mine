@@ -8,11 +8,11 @@ on:
 env:
   RETENTION_COUNT: 3
   CPU: sm8650
-  FEIL: oneplus_13r  # Updated from oneplus_ace5
+  FEIL: oneplus_13r 
   CPUD: pineapple
   ANDROID_VERSION: android14
   KERNEL_VERSION: 6.1
-  KERNEL_NAME: -Ace5-SukiSU-CoolApk@Xinran_official
+  KERNEL_NAME: -ogki-g6a4039a2ab7bher342-4K
   KERNELSU_VARIANT: SukiSU-Ultra
   KERNELSU_VERSION: main
   SUSFS_ENABLED: Enabled
