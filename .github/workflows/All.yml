@@ -134,8 +134,8 @@ jobs:
           free -h
       - name: Configure Git
         run: |
-          git config --global user.name "Numbersf"
-          git config --global user.email "263623064@qq.com"
+          git config --global user.name "O+build"
+          git config --global user.email "O+build@yahoo.com"
       - name: Show Selected Inputs Debug
         run: |
           echo "Selected CPU: ${{ github.event.inputs.CPU }}"
