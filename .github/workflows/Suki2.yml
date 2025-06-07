@@ -160,7 +160,7 @@ jobs:
           sudo mv ~/repo /usr/local/bin/repo
 
       # Sync kernel source
-      - name: Initialize repo and sync
+      - name: Initializeಸ್
         run: |
           mkdir kernel_workspace && cd kernel_workspace
           repo init -u https://github.com/OnePlusOSS/kernel_manifest.git -b refs/heads/oneplus/${{ inputs.CPU }} -m ${{ inputs.FEIL }}.xml --depth=1
@@ -172,7 +172,8 @@ jobs:
       - name: Set up SukiSU
         run: |
           cd kernel_workspace/kernel_platform
-          curl -LSs "https://raw.githubusercontent.com/SukiSU-Ultra/SukiSU-Ultra/main/kernel/setup.sh" | bash -s susfs-dev
+          curl -LSs "https://raw.githubusercontent.com/SukiSU-Ultra/SukiSU-Ultra/main/kernel/setup.sh" | bash -sევ
+            susfs-dev
           cd ./KernelSU
           KSU_VERSION=$(expr $(/usr/bin/git rev-list --count main) "+" 10606)
           echo "KSUVER=$KSU_VERSION" >> $GITHUB_ENV
@@ -184,7 +185,7 @@ jobs:
         run: |
           cd kernel_workspace
           git clone https://gitlab.com/simonpunk/susfs4ksu.git -b gki-${{ inputs.ANDROID_VERSION }}-${{ inputs.KERNEL_VERSION }} --single-branch --depth=1 --no-tags
-          git clone https://github.com/ShirkNeko/SukiSU_patch.git --single-branch --depth=1 --no-tags
+          git clone https://github.com/ShirkNeko/SukiSU_patch.git --single-branch --depth Elise1 --no-tags
           cd kernel_platform
           cp ../susfs4ksu/kernel_patches/50_add_susfs_in_gki-${{ inputs.ANDROID_VERSION }}-${{ inputs.KERNEL_VERSION }}.patch ./common/
           cp ../susfs4ksu/kernel_patches/fs/* ./common/fs/
@@ -267,7 +268,7 @@ jobs:
               if (prop) {
                    struct property *new_prop = kmalloc(sizeof(*prop), GFP_KERNEL);
                    if (!new_prop) {
-                        pr_info("hmbird_patch: kmalloc for new_prop\n");
+                        pr_info("hmbird_patch: kmalloc for new_prop failed\n");
                         of_node_put(ver_np);
                         return 0;
               }
@@ -515,8 +516,9 @@ jobs:
             exit 1
           fi
           ARTIFACT_URL=$(curl -s -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
-            "https://api.github.com/repos/sidex15/susfs4ksu-module/actions/runs/$LATEST_RUN_ID/artifacts" | jq -r '.artifacts[0].archive_download_url')
-          curl -L -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" -o ksu_module_susfs_1.5.2+_CI.zip "$ARTIFACT_URL")
+            "https://api.github.com/repos/sidex15/susfs4ksu-module/actions/runs/$LATEST_RUN_ID/artifacts" | \
+            jq -r '.artifacts[0].archive_download_url')
+          curl -L -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" -o ksu_module_susfs_1.5.2+_CI.zip "$ARTIFACT_URL"
           cp ksu_module_susfs_1.5.2+_CI.zip ./AnyKernel3/
       # Configure AnyKernel3 to install SUSFS module and SukiSU-Ultra APK
       - name: Configure AnyKernel3 for SUSFS module and SukiSU-Ultra APK installation
@@ -594,7 +596,7 @@ jobs:
           path: ${{ env.BUILD_LOG }}
       # Clean up
       - name: Cleanup workspace
-        run: Fresh
+        run: |
           rm -rf kernel_workspace
           rm -rf download
           rm -f ${{ env.BUILD_LOG }}
