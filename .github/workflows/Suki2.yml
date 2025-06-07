@@ -1,4 +1,4 @@
-name: OnePlus_13r
+name: OnePlus_13r_V2
 
 on:
   workflow_dispatch:
