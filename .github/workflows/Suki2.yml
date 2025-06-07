@@ -1,4 +1,4 @@
-name: OnePlus_13r_V2
+name: OnePlus_13rV2
 
 on:
   workflow_dispatch:
@@ -6,18 +6,18 @@ on:
     - cron: '0 16 * * *'
 
 env:
-  RETENTION_COUNT: 3  
-  CPU: 'sm8650'
-  FEIL: 'oneplus_13r'
-  CPUD: 'pineapple'
-  ANDROID_VERSION: 'android14'
-  KERNEL_VERSION: '6.1'
-  KERNEL_NAME: '-11-o-ga7b5daa5t1b5'
-  KERNELSU_VARIANT: 'SukiSU-Ultra'
-  KERNELSU_VERSION: 'main'
-  SUSFS_ENABLED: 'Enabled'  
-  VFS_PATCH_ENABLED: 'Enabled'
-  WORKSPACE_DIR: 'kernel_workspace'
+  RETENTION_COUNT: 3
+  CPU: sm8650
+  FEIL: oneplus_13r  # Updated from oneplus_ace5
+  CPUD: pineapple
+  ANDROID_VERSION: android14
+  KERNEL_VERSION: 6.1
+  KERNEL_NAME: -Ace5-SukiSU-CoolApk@Xinran_official
+  KERNELSU_VARIANT: SukiSU-Ultra
+  KERNELSU_VERSION: main
+  SUSFS_ENABLED: Enabled
+  VFS_PATCH_ENABLED: Enabled
+  WORKSPACE_DIR: kernel_workspace
 
 jobs:
   build:
@@ -31,17 +31,17 @@ jobs:
           root-reserve-mb: 8192
           temp-reserve-mb: 2048
           swap-size-mb: 8192
-          remove-dotnet: 'true'
-          remove-android: 'true'
-          remove-haskell: 'true'
-          remove-codeql: 'true'
+          remove-dotnet: true
+          remove-android: true
+          remove-haskell: true
+          remove-codeql: true
 
       - name: Configure Environment
         run: |
-          git config --global user.name "O+builder"
-          git config --global user.email "O+builder@yahoo.com"
-          
+          git config --global user.name "Sorynthia"
+          git config --global user.email "2984886500@qq.com"
           mkdir -p ${{ env.WORKSPACE_DIR }}
+
       - name: Set Dependency Cache
         id: apt-cache
         uses: actions/cache@v3
@@ -50,29 +50,30 @@ jobs:
           key: ${{ runner.os }}-apt-${{ hashFiles('**/setup-requirements.txt') }}
           restore-keys: |
             ${{ runner.os }}-apt-
+
       - name: Install Dependencies
         run: |
           sudo apt update && sudo apt upgrade -y
           sudo apt install -y python3 git curl
+
       - name: Install and Configure repo Tool
         run: |
           curl https://storage.googleapis.com/git-repo-downloads/repo > ~/repo
           chmod a+x ~/repo
           sudo mv ~/repo /usr/local/bin/repo
+
       - name: Initialize Repository and Sync
         working-directory: ${{ env.WORKSPACE_DIR }}
         run: |
           repo init -u https://github.com/OnePlusOSS/kernel_manifest.git -b oneplus/${{ env.CPU }} -m ${{ env.FEIL }}.xml --depth=1
           repo sync
-          
-          find kernel_platform -name "abi_gki_protected_export_.*" -delete || echo "No protected exports found!"
-          
+          find kernel_platform -name "abi_gki_protected_exports_*" -delete || echo "No protected exports found!"
           for script_path in kernel_platform/common/scripts/setlocalversion kernel_platform/msm-kernel/scripts/setlocalversion kernel_platform/external/dtc/scripts/setlocalversion; do
             if [ -f "$script_path" ]; then
               sed -i 's/ -dirty//g' "$script_path"
             fi
           done
-      
+
       - name: Set KernelSU Branch
         id: setup_branch
         run: |
@@ -81,70 +82,61 @@ jobs:
           else
             echo "BRANCH=" >> $GITHUB_ENV
           fi
+
       - name: Add SukiSU-Ultra
         id: ksu_version
-        working-directory:  ${{ env.WORKSPACE_DIR }}/kernel_platform
+        working-directory: ${{ env.WORKSPACE_DIR }}/kernel_platform
         run: |
           curl -LSs "https://raw.githubusercontent.com/ShirkNeko/SukiSU-Ultra/refs/heads/main/kernel/setup.sh" | bash ${{ env.BRANCH }}
-          
-          cd KernelSU
+          cd ./KernelSU
           KSU_VERSION=$(expr $(/usr/bin/git rev-list --count main) "+" 10606)
           echo "KSUVER=$KSU_VERSION" >> $GITHUB_ENV
           echo "ksuver=$KSU_VERSION" >> $GITHUB_OUTPUT
-          
-          sed -i "s/DKSU_VERSION=12800/DKSUVER=$KSU_VERSION/" kernel/Makefile
+          sed -i "s/DKSU_VERSION=12800/DKSU_VERSION=$KSU_VERSION/" kernel/Makefile
+
       - name: Prepare and Apply Patches
         working-directory: ${{ env.WORKSPACE_DIR }}
         run: |
-          
           git clone https://gitlab.com/simonpunk/susfs4ksu.git -b gki-${{ env.ANDROID_VERSION }}-${{ env.KERNEL_VERSION }}
           git clone https://github.com/ShirkNeko/SukiSU_patch.git
-          
           cd kernel_platform
-          
           cp ../susfs4ksu/kernel_patches/50_add_susfs_in_gki-${{ env.ANDROID_VERSION }}-${{ env.KERNEL_VERSION }}.patch ./common/
           cp -r ../susfs4ksu/kernel_patches/fs/* ./common/fs/
           cp -r ../susfs4ksu/kernel_patches/include/linux/* ./common/include/linux/
-          
           cd ./common
           patch -p1 < 50_add_susfs_in_gki-${{ env.ANDROID_VERSION }}-${{ env.KERNEL_VERSION }}.patch || true
-          
           cp ../../SukiSU_patch/69_hide_stuff.patch ./
           patch -p1 -F 3 < 69_hide_stuff.patch
-          
           cp ../../SukiSU_patch/hooks/new_hooks.patch ./
           patch -p1 -F 3 < new_hooks.patch
+
       - name: Configure Kernel Options
         working-directory: ${{ env.WORKSPACE_DIR }}/kernel_platform
         run: |
           CONFIG_FILE="./common/arch/arm64/configs/gki_defconfig"
           DEFCONFIG="$CONFIG_FILE"
-          
-          # Existing configurations
           echo "CONFIG_KSU=y" >> "$CONFIG_FILE"
           echo "CONFIG_KPM=y" >> "$CONFIG_FILE"
-          echo "CONFIG_KSU_SUSFS_SUS_SUSFS_SUS=n" >> "$CONFIG_FILE"
+          echo "CONFIG_KSU_SUSFS_SUS_SU=n" >> "$CONFIG_FILE"
           echo "CONFIG_KSU_MANUAL_HOOK=y" >> "$CONFIG_FILE"
           echo "CONFIG_KSU_SUSFS=y" >> "$CONFIG_FILE"
-          echo "CONFIG_KSU_SUSFS_HASMAGIC_MOUNT=y" >> "$CONFIG_FILE"
+          echo "CONFIG_KSU_SUSFS_HAS_MAGIC_MOUNT=y" >> "$CONFIG_FILE"
           echo "CONFIG_KSU_SUSFS_SUS_PATH=y" >> "$CONFIG_FILE"
-          echo "CONFIG_KSU_SUSFS_SUSMOUNT=y" >> "$CONFIG_FILE"
-          echo "CONFIG_KSU_SUSFS_AUTOADD_SUS_KSU_DEFAULT_MOUNT=y" >> "$CONFIG_FILE"
-          echo "CONFIG_KSU_SUSFS_AUTOSUSFS_AUTOADD_SUS_BIND_MOUNT=y" >> "$CONFIG_FILE"
+          echo "CONFIG_KSU_SUSFS_SUS_MOUNT=y" >> "$CONFIG_FILE"
+          echo "CONFIG_KSU_SUSFS_AUTO_ADD_SUS_KSU_DEFAULT_MOUNT=y" >> "$CONFIG_FILE"
+          echo "CONFIG_KSU_SUSFS_AUTO_ADD_SUS_BIND_MOUNT=y" >> "$CONFIG_FILE"
           echo "CONFIG_KSU_SUSFS_SUS_KSTAT=y" >> "$CONFIG_FILE"
-          echo "CONFIG_KSU_SUSFS_SUSOVERLAYFS=n" >> "$CONFIG_FILE"
-          echo "CONFIG_KSU_SUSFS_SUSFS_TRYUMOUNT=y" >> "$CONFIG_FILE"
-          echo "CONFIG_KSU_SUSFS_AUTOADD_SUSFS_AUTO_ADDTRY_UMOUNT_FOR_BOUNTMOUNT=y" >> "$CONFIG_FILE"
-          
-          # Additional configurations (merged, no duplicates)
-          echo "CONFIG_KSU_SUSFS_SPOOFU_NAME=y" >> "$CONFIG_FILE"
-          echo "CONFIG_SUSFS_KSU_SUSFS_ENABLE_LOG=y" >> "$CONFIG_FILE"
-          echo "CONFIG_KSU_SUSFS_HIDKSU_SUSFS_KSU_SUSFS_SYMBOLS=y" >> "$CONFIG_FILE"
-          echo "CONFIG_SUS_SUSFS_SPOOFS_CMDLINEOR_BOOTCONFIG=y" >> "$CONFIG_FILE"
-          echo "CONFIG_KSU_SUSFS_OPENREDIRECT" >> "$CONFIG_FILE"
+          echo "CONFIG_KSU_SUSFS_SUS_OVERLAYFS=n" >> "$CONFIG_FILE"
+          echo "CONFIG_KSU_SUSFS_TRY_UMOUNT=y" >> "$CONFIG_FILE"
+          echo "CONFIG_KSU_SUSFS_AUTO_ADD_TRY_UMOUNT_FOR_BIND_MOUNT=y" >> "$CONFIG_FILE"
+          echo "CONFIG_KSU_SUSFS_SPOOF_UNAME=y" >> "$CONFIG_FILE"
+          echo "CONFIG_KSU_SUSFS_ENABLE_LOG=y" >> "$CONFIG_FILE"
+          echo "CONFIG_KSU_SUSFS_HIDE_KSU_SUSFS_SYMBOLS=y" >> "$CONFIG_FILE"
+          echo "CONFIG_KSU_SUSFS_SPOOF_CMDLINE_OR_BOOTCONFIG=y" >> "$CONFIG_FILE"
+          echo "CONFIG_KSU_SUSFS_OPEN_REDIRECT=y" >> "$CONFIG_FILE"
           echo "CONFIG_TMPFS_XATTR=y" >> "$CONFIG_FILE"
-          echo "CONFIG_TMPFS_POSIXACL=y" >> "$CONFIG_FILE"
-          echo "CONFIG_TCP_CONGADVANCED=y" >> "$CONFIG_FILE"
+          echo "CONFIG_TMPFS_POSIX_ACL=y" >> "$CONFIG_FILE"
+          echo "CONFIG_TCP_CONG_ADVANCED=y" >> "$CONFIG_FILE"
           echo "CONFIG_TCP_CONG_BBR=y" >> "$CONFIG_FILE"
           echo "CONFIG_DEFAULT_BBR=y" >> "$CONFIG_FILE"
           echo "CONFIG_TCP_CONG_BIC=n" >> "$CONFIG_FILE"
@@ -162,7 +154,7 @@ jobs:
           echo "CONFIG_IP_NF_TARGET_ECN=y" >> "$CONFIG_FILE"
           echo "CONFIG_TCP_FASTOPEN=y" >> "$CONFIG_FILE"
           echo "CONFIG_IP_NF_TARGET_TTL=y" >> "$CONFIG_FILE"
-          echo "CONFIG_IP_NF6_NF_TARGET_HL=y" >> "$CONFIG_FILE"
+          echo "CONFIG_IP6_NF_TARGET_HL=y" >> "$CONFIG_FILE"
           echo "CONFIG_IP6_NF_MATCH_HL=y" >> "$CONFIG_FILE"
           echo "CONFIG_EXT4_INODE_TEST=n" >> "$CONFIG_FILE"
           echo "CONFIG_F_FS_IPC_LOG=n" >> "$CONFIG_FILE"
@@ -174,43 +166,43 @@ jobs:
           echo "CONFIG_SOC_UTILS_TEST=n" >> "$CONFIG_FILE"
           echo "CONFIG_DEBUG_KERNEL=n" >> "$CONFIG_FILE"
           echo "CONFIG_DYNAMIC_DEBUG=n" >> "$CONFIG_FILE"
-          echo "CONFIG_DEBUGFS=n" >> "$CONFIG_FILE"
           echo "CONFIG_DEBUG_INFO=n" >> "$CONFIG_FILE"
           echo "CONFIG_BOEFFLA_WL_BLOCKER=y" >> "$DEFCONFIG"
           echo "CONFIG_WQ_POWER_EFFICIENT_DEFAULT=y" >> "$DEFCONFIG"
           echo "CONFIG_CC_OPTIMIZE_FOR_PERFORMANCE=y" >> "$DEFCONFIG"
-          
           sed -i "s/CONFIG_PRINTK_TIME=y/CONFIG_PRINTK_TIME=n/" "$DEFCONFIG"
           sed -i "s/CONFIG_PRINTK_CALLER=y/CONFIG_PRINTK_CALLER=n/" "$DEFCONFIG"
-          
           sed -i 's/check_defconfig//' ./common/build.config.gki
+          cd common
+          git add -A && git commit -a -m "Add SUSFS, wakelock blocker, and optimization configuration" || echo "No changes to commit"
+
       - name: Update Kconfig for Blacklisted Modules
         run: |
           find kernel_workspace/kernel_platform -name Kconfig -exec sed -i \
             -e 's/CONFIG_EXT4_INODE_TEST=[ym]/CONFIG_EXT4_INODE_TEST=n/' \
             -e 's/CONFIG_F_FS_IPC_LOG=[ym]/CONFIG_F_FS_IPC_LOG=n/' \
             -e 's/CONFIG_HUNG_TASK_ENH=[ym]/CONFIG_HUNG_TASK_ENH=n/' \
-            -e 's/CONFIG_FIIO_TEST_FORMAT=[ym]/CONFIG_IIO_TEST_FORMAT=n/' \
-            -e 's/CONFIG_OPLUS_BSP_SIGKILL_DIAGNOSIS=[ym]/CONFIG_OPLUS_BSP_SGKILL_DIAGNOSIS=n/' \
+            -e 's/CONFIG_IIO_TEST_FORMAT=[ym]/CONFIG_IIO_TEST_FORMAT=n/' \
+            -e 's/CONFIG_OPLUS_BSP_SIGKILL_DIAGNOSIS=[ym]/CONFIG_OPLUS_BSP_SIGKILL_DIAGNOSIS=n/' \
             -e 's/CONFIG_OPLUS_LOCK_TORTURE=[ym]/CONFIG_OPLUS_LOCK_TORTURE=n/' \
             -e 's/CONFIG_SOC_TOPOLOGY_TEST=[ym]/CONFIG_SOC_TOPOLOGY_TEST=n/' \
-            -e 's/CONFIG_SOC_UTILS_TEST=[ym]/CONFIG_SOC_UTILS_TEST=n/' \
-            {} \; \
+            -e 's/CONFIG_SOC_UTILS_TEST=[ym]/CONFIG_SOC_UTILS_TEST=n/' {} \;
+
       - name: Add Build Name
         working-directory: ${{ env.WORKSPACE_DIR }}/kernel_platform
         run: |
           sed -i "/stable_scmversion_cmd/s/-maybe-dirty//g" ./build/kernel/kleaf/impl/stamp.bzl
           sed -i 's|echo "\$res"|echo "'"$(echo "${{ env.KERNEL_NAME }}" | sed 's/[\&@]/\\&/g')"'"|g' ./common/scripts/setlocalversion
-          
+
       - name: Build Kernel
         working-directory: ${{ env.WORKSPACE_DIR }}
         run: |
           if [[ "${{ env.CPU }}" == "sm8650" || "${{ env.CPU }}" == "sm8750" ]]; then
-            ./kernel_platform/build_with_bazel.py -t ${{ env.CPUD }} gki -action_env=KSU_VERSION
-          
+            ./kernel_platform/build_with_bazel.py -t ${{ env.CPUD }} gki --action_env=KSU_VERSION
           else
             LTO=thin ./kernel_platform/oplus/build/oplus_build_kernel.sh ${{ env.CPUD }} gki
-          
+          fi
+
       - name: Clone AnyKernel3
         run: |
           git clone https://github.com/Kernel-SU/AnyKernel3 --depth=1
@@ -240,9 +232,10 @@ jobs:
             echo "Image file not found, build may have failed"
             exit 1
           fi
+
       - name: Apply patch_linux and Replace Kernel
         run: |
-          cd kernel_workspace/kernel_platform/out-msm-kernel-${{ env.CPUD }}-gki/dist
+          cd kernel_workspace/kernel_platform/out/msm-kernel-${{ env.CPUD }}-gki/dist
           curl -LO https://github.com/ShirkNeko/SukiSU_KernelPatch_patch/releases/download/0.11-beta/patch_linux
           chmod +x patch_linux
           ./patch_linux
@@ -250,15 +243,18 @@ jobs:
           mv oImage Image
           cp Image $GITHUB_WORKSPACE/AnyKernel3/Image
           cp Image $GITHUB_WORKSPACE/kernel_workspace/init_boot_Image.img
+
       - name: Package AnyKernel3 (ZIP)
         run: |
           cd $GITHUB_WORKSPACE/AnyKernel3
           zip -r ../AnyKernel3_KernelSU_${{ env.KSUVER }}_${{ env.FEIL }}.zip ./*
           cd ..
+
       - name: Package Original Image (ZIP)
         run: |
           cd $GITHUB_WORKSPACE/kernel_workspace
           zip -r ../Image_KernelSU_${{ env.KSUVER }}_${{ env.FEIL }}.zip ./init_boot_Image.img
+
       - name: Upload ZIP Artifacts
         uses: actions/upload-artifact@v4
         with:
@@ -274,24 +270,23 @@ jobs:
       contents: write
       packages: write
       actions: read
-      
     steps:
       - name: Download ZIP Artifacts
         uses: actions/download-artifact@v4
         with:
           name: Kernel_ZIP_Artifacts
           path: ./release_zips
-         
+
       - name: Create Release
         id: create_release
         uses: softprops/action-gh-release@v1
         with:
           tag_name: "build-${{ github.run_id }}"
-          name: "OnePlus_ACE5 Build ${{ github.run_number }}"
+          name: "OnePlus_13R Build ${{ github.run_number }}"  # Updated to reflect FEIL: oneplus_13r
           body: |
             Daily automatic build of SukiSU-Ultra kernel
-            - Device: OnePlus ACE5
-            - Features: KernelSU+SUSFS+VFS+PatchModule
+            - Device: OnePlus 13R
+            - Features: KernelSU+SUSFS+VFS+KPM
             - Build Time: ${{ github.event.repository.updated_at }}
             - Kernel Version: ${{ needs.build.outputs.ksuver }}
             - Recommended Manager: [SukiSU-Ultra](https://github.com/ShirkNeko/SukiSU-Ultra/releases)
@@ -303,6 +298,7 @@ jobs:
           files: |
             release_zips/AnyKernel3_KernelSU_*.zip
             release_zips/Image_KernelSU_*.zip
+
       - name: Clean Up Old Releases
         uses: dev-drprasad/delete-older-releases@v0.3.4
         continue-on-error: true
@@ -312,4 +308,4 @@ jobs:
           delete_tags: true
           delete_tag_pattern: 'build-*'
         env:
-          GITHUB_TOKEN: ${{ secrets.github.token }}
+          GITHUB_TOKEN: ${{ github.token }}
