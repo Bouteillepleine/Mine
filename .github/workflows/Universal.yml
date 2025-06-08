@@ -1,7 +1,7 @@
 name: Oplus Android 15 Universal
 
 env:
-  TZ: EUROPE
+  TZ: Asia/Shanghai
   CPU: 'sm8650'
   FEIL: 'oppo+oplus+realme'
   ANDROID_VERSION: 'android14'
@@ -12,9 +12,6 @@ env:
 
 on:
   workflow_dispatch:
-  # Uncomment the following code to enable daily scheduled compilation
-#  schedule:
-#    - cron: '0 23 * * *'  # UTC time 23:00 (Beijing time next day 07:00)
     inputs:
       lz4k_enable:
         description: 'Whether to install LZ4K patch'
@@ -70,7 +67,6 @@ jobs:
   build:
     runs-on: ubuntu-latest
     outputs:
-      # ksuver: ${{ steps.ksu_version.outputs.ksuver }}
       ksuver: ${{ env.KSUVER }}
     steps:
       - name: Maximize build space
@@ -106,7 +102,6 @@ jobs:
 
       - name: Initialize source repository
         run: |
-          # ===== Initialize repository =====
           echo ">>> Initializing repository..."
           rm -rf kernel_workspace
           mkdir kernel_workspace
@@ -116,28 +111,9 @@ jobs:
           git clone --depth=1 https://github.com/OnePlusOSS/android_kernel_common_oneplus_sm8650 -b oneplus/"${{ github.event.inputs.basebranch }}" common
           echo ">>> Repository initialization complete"
           
-          # rm -rf kernel_workspace && mkdir kernel_workspace && cd kernel_workspace
-          # echo "Cloning source repository..."
-          # # git clone --depth=1 https://github.com/cctv18/android_kernel_common_oneplus_sm8650 -b oneplus/sm8650_v_15.0.0_oneplus12 common         
-          
-          # if [[ "${{ github.event.inputs.basebranch }}" == "realme_GT5pro-AndroidV-common-source" ]]; then
-          #   git clone --depth=1 https://github.com/realme-kernel-opensource/realme_GT5pro-AndroidV-common-source.git common
-          # else
-          #   git clone --depth=1 https://github.com/OnePlusOSS/android_kernel_common_oneplus_sm8650 -b oneplus/"${{ github.event.inputs.basebranch }}" common
-          # fi  
-          
           git clone https://github.com/Carl1984/oppo_oplus_realme_sm8650.git
           cp ./oppo_oplus_realme_sm8650/patches/001-lz4.patch ./common/
           cp ./oppo_oplus_realme_sm8650/patches/002-zstd.patch ./common/
-          
-          # rm -rf ./common/drivers/soc/oplus/*
-          # cp -r ./oppo_oplus_realme_sm8650/Vendor/* ./common/drivers/soc/oplus/
-          # rm -rf ./common/kernel/locking/locking_main.h
-          # cp ./oppo_oplus_realme_sm8650/patches/locking_main.h ./common/kernel/locking/
-          # rm -rf ./common/kernel/locking/oplus_locking.c
-          # cp ./oppo_oplus_realme_sm8650/patches/oplus_locking.c ./common/kernel/locking/
-          # rm -rf ./common/kernel/locking/sa_common_struct.h
-          # cp ./oppo_oplus_realme_sm8650/patches/sa_common_struct.h ./common/kernel/locking/
           
           echo "Removing ABI protection & dirty suffix..."
           rm common/android/abi_gki_protected_exports_* || true
@@ -147,7 +123,7 @@ jobs:
           done
 
       - name: Add SukiSU-Ultra
-        if: ${{github.event.inputs.ksu_type == 'SukiUltra'}}
+        if: ${{ github.event.inputs.ksu_type == 'SukiUltra' }}
         id: ksu_version
         run: |
           cd kernel_workspace
@@ -160,7 +136,7 @@ jobs:
           sed -i "s/DKSU_VERSION=12800/DKSU_VERSION=$KSU_VERSION/" kernel/Makefile
 
       - name: Apply SUSFS patches for SukiSU-Ultra
-        if: ${{github.event.inputs.ksu_type == 'SukiUltra'}}
+        if: ${{ github.event.inputs.ksu_type == 'SukiUltra' }}
         run: |
           cd kernel_workspace
           git clone https://github.com/ShirkNeko/susfs4ksu.git -b gki-${{ env.ANDROID_VERSION }}-${{ env.KERNEL_VERSION }}
@@ -174,14 +150,14 @@ jobs:
           patch -p1 < new_hooks.patch
 
       - name: Apply Hide Stuff patches
-        if: ${{github.event.inputs.ksu_type == 'SukiUltra'}}
+        if: ${{ github.event.inputs.ksu_type == 'SukiUltra' }}
         run: |
           cd kernel_workspace/common
           cp ../SukiSU_patch/69_hide_stuff.patch ./
           patch -p1 < 69_hide_stuff.patch
 
       - name: Set up KernelSU Next
-        if: ${{github.event.inputs.ksu_type == 'ksun'}}
+        if: ${{ github.event.inputs.ksu_type == 'ksun' }}
         run: |
           cd kernel_workspace
           if [[ "${{ github.event.inputs.ksun_branch }}" == "next" ]]; then
@@ -198,7 +174,7 @@ jobs:
           sed -i "s/DKSU_VERSION=11998/DKSU_VERSION=${KSU_VERSION}/" kernel/Makefile
 
       - name: Apply SUSFS patches for ksun
-        if: ${{github.event.inputs.ksu_type == 'ksun'}}
+        if: ${{ github.event.inputs.ksu_type == 'ksun' }}
         run: |
           cd kernel_workspace
           if [[ "${{ github.event.inputs.lz4k_enable }}" == "true" ]]; then
@@ -211,7 +187,6 @@ jobs:
           cp ./susfs4ksu/kernel_patches/fs/* ./common/fs/
           cp ./susfs4ksu/kernel_patches/include/linux/* ./common/include/linux/
           
-          # Apply patches
           cd ./KernelSU-Next
           if [[ "${{ github.event.inputs.ksun_branch }}" == "next" ]]; then
             cp ../oppo_oplus_realme_sm8650/patches/0001-kernel-patch-susfs-v1.5.7-to-KernelSU-Next-v1.0.7.patch ./
@@ -219,7 +194,6 @@ jobs:
           fi
           cd ../common
           patch -p1 < 50_add_susfs_in_gki-${{ env.ANDROID_VERSION }}-${{ env.KERNEL_VERSION }}.patch || true
-          # Replace next_hooks.patch with syscall_hooks.patch
           cp ../kernel_patches/next/syscall_hooks.patch ./
           patch -p1 -F 3 < syscall_hooks.patch
           cp ../kernel_patches/69_hide_stuff.patch ./
@@ -232,15 +206,19 @@ jobs:
           patch -p1 < 002-zstd.patch
 
       - name: Apply lz4k patch
+        if: ${{ github.event.inputs.lz4k_enable == 'true' }}
         run: |
-          if [[ "${{ github.event.inputs.lz4k_enable }}" == "true" ]]; then
-            cd kernel_workspace/common
-            cp -r ../SukiSU_patch/other/zram/lz4k/include/linux/* ./include/linux/
-            cp -r ../SukiSU_patch/other/zram/lz4k/lib/* ./lib
-            cp -r ../SukiSU_patch/other/zram/lz4k/crypto/* ./crypto
-            cp ../SukiSU_patch/other/zram/zram_patch/${{ env.KERNEL_VERSION }}/lz4kd.patch ./
-            patch -p1 -F 3 < lz4kd.patch || true
-          fi
+          cd kernel_workspace/common
+          cp -r ../SukiSU_patch/other/zram/lz4k/include/linux/* ./include/linux/
+          cp -r ../SukiSU_patch/other/zram/lz4k/lib/* ./lib
+          cp -r ../SukiSU_patch/other/zram/lz4k/crypto/* ./crypto
+          cp ../SukiSU_patch/other/zram/zram_patch/${{ env.KERNEL_VERSION }}/lz4kd.patch ./
+          patch -p1 -F 3 < lz4kd.patch || true
+
+      - name: Configure Git identity
+        run: |
+          git config --local user.name "GitHub Action"
+          git config --local user.email "action@github.com"
 
       - name: Add SUSFS configuration settings
         run: |
@@ -280,14 +258,8 @@ jobs:
             echo "CONFIG_CRYPTO_LZ4K=y" >> "$CONFIG_FILE"
             echo "CONFIG_CRYPTO_LZ4KD=y" >> "$CONFIG_FILE"
             echo "CONFIG_CRYPTO_842=y" >> "$CONFIG_FILE"
-            # The following configurations have not been verified for necessity, pending testing
-            #echo "CONFIG_ZRAM_WRITEBACK=y" >> "$CONFIG_FILE"
-            #sed -i 's/CONFIG_ZRAM=m/CONFIG_ZRAM=y/g' "$CONFIG_FILE"
-            #sed -i 's/CONFIG_MODULE_SIG=y/CONFIG_MODULE_SIG=n/g' "$CONFIG_FILE"
           fi
-          # Additional configurations for ThinLTO
           echo "CONFIG_THINLTO=y" >> "$CONFIG_FILE"
-          # Additional configurations from create_release step
           echo "CONFIG_TMPFS_XATTR=y" >> "$CONFIG_FILE"
           echo "CONFIG_TMPFS_POSIX_ACL=y" >> "$CONFIG_FILE"
           echo "CONFIG_TCP_CONG_ADVANCED=y" >> "$CONFIG_FILE"
@@ -326,22 +298,25 @@ jobs:
           echo "CONFIG_CC_OPTIMIZE_FOR_PERFORMANCE=y" >> "$DEFCONFIG"
           sed -i "s/CONFIG_PRINTK_TIME=y/CONFIG_PRINTK_TIME=n/" "$DEFCONFIG"
           sed -i "s/CONFIG_PRINTK_CALLER=y/CONFIG_PRINTK_CALLER=n/" "$DEFCONFIG"
-          # Disable defconfig check
           sed -i 's/check_defconfig//' ./common/build.config.gki
           cd common
           git add -A && git commit -a -m "Add SUSFS, wakelock blocker, optimization configuration, and ThinLTO" || echo "No changes to commit"
 
       - name: Update Kconfig for Blacklisted Modules
         run: |
-          find kernel_workspace/kernel_platform -name Kconfig -exec sed -i \
-            -e 's/CONFIG_EXT4_INODE_TEST=[ym]/CONFIG_EXT4_INODE_TEST=n/' \
-            -e 's/CONFIG_F_FS_IPC_LOG=[ym]/CONFIG_F_FS_IPC_LOG=n/' \
-            -e 's/CONFIG_HUNG_TASK_ENH=[ym]/CONFIG_HUNG_TASK_ENH=n/' \
-            -e 's/CONFIG_IIO_TEST_FORMAT=[ym]/CONFIG_IIO_TEST_FORMAT=n/' \
-            -e 's/CONFIG_OPLUS_BSP_SIGKILL_DIAGNOSIS=[ym]/CONFIG_OPLUS_BSP_SIGKILL_DIAGNOSIS=n/' \
-            -e 's/CONFIG_OPLUS_LOCK_TORTURE=[ym]/CONFIG_OPLUS_LOCK_TORTURE=n/' \
-            -e 's/CONFIG_SOC_TOPOLOGY_TEST=[ym]/CONFIG_SOC_TOPOLOGY_TEST=n/' \
-            -e 's/CONFIG_SOC_UTILS_TEST=[ym]/CONFIG_SOC_UTILS_TEST=n/' {} \;
+          if [ -d "kernel_workspace/common" ]; then
+            find kernel_workspace/common -name Kconfig -exec sed -i \
+              -e 's/CONFIG_EXT4_INODE_TEST=[ym]/CONFIG_EXT4_INODE_TEST=n/' \
+              -e 's/CONFIG_F_FS_IPC_LOG=[ym]/CONFIG_F_FS_IPC_LOG=n/' \
+              -e 's/CONFIG_HUNG_TASK_ENH=[ym]/CONFIG_HUNG_TASK_ENH=n/' \
+              -e 's/CONFIG_IIO_TEST_FORMAT=[ym]/CONFIG_IIO_TEST_FORMAT=n/' \
+              -e 's/CONFIG_OPLUS_BSP_SIGKILL_DIAGNOSIS=[ym]/CONFIG_OPLUS_BSP_SIGKILL_DIAGNOSIS=n/' \
+              -e 's/CONFIG_OPLUS_LOCK_TORTURE=[ym]/CONFIG_OPLUS_LOCK_TORTURE=n/' \
+              -e 's/CONFIG_SOC_TOPOLOGY_TEST=[ym]/CONFIG_SOC_TOPOLOGY_TEST=n/' \
+              -e 's/CONFIG_SOC_UTILS_TEST=[ym]/CONFIG_SOC_UTILS_TEST=n/' {} \;
+          else
+            echo "Directory kernel_workspace/common not found, skipping Kconfig updates"
+          fi
 
       - name: Add build name
         run: |
@@ -358,7 +333,7 @@ jobs:
               sed -i "\$s|echo \"\\\$res\"|echo \"-${{ env.KERNEL_NAME }}\"|" "$f"
             done
           fi
-           
+
       - name: Build kernel with ThinLTO
         run: |
           cd kernel_workspace
@@ -369,26 +344,24 @@ jobs:
             cp -r ./sched_ext/* ./common/kernel/sched
           fi
           cd common
-          # Ensure ThinLTO flags are passed explicitly
           make -j$(nproc --all) LLVM=-20 ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- CROSS_COMPILE_ARM32=arm-linux-gnuabeihf- CC=clang LD=ld.lld HOSTCC=clang HOSTLD=ld.lld O=out KCFLAGS+=-Wno-error LTO=thin gki_defconfig all
           echo "Kernel compilation with ThinLTO complete!"
-         
+
       - name: Apply KPM patch and patch kernel
-        if: ${{github.event.inputs.ksu_type == 'SukiUltra' && github.event.inputs.KPM == 'true' }}
+        if: ${{ github.event.inputs.ksu_type == 'SukiUltra' && github.event.inputs.KPM == 'true' }}
         run: |
           cd kernel_workspace/common/out/arch/arm64/boot
-          # curl -LO https://github.com/ShirkNeko/SukiSU_KernelPatch_patch/releases/download/0.11-beta/patch_linux
           curl -LO https://github.com/SukiSU-Ultra/SukiSU_KernelPatch_patch/releases/download/0.11-beta/patch_linux
           chmod +x patch_linux
           ./patch_linux
           rm -f Image
-          mv oImage Image     
+          mv oImage Image
 
       - name: Set suffix
         id: suffix
         run: |
           echo "value=${{ github.event.inputs.KPM == 'true' && '_KPM' || '' }}${{ github.event.inputs.scx_enable == 'true' && '_SCX' || '' }}${{ github.event.inputs.lz4k_enable == 'true' && '_LZ4KD' || '' }}_ThinLTO" >> $GITHUB_OUTPUT
-          
+
       - name: Clone AnyKernel3 and package
         run: |
           cd kernel_workspace
@@ -422,7 +395,6 @@ jobs:
       contents: write
       packages: write
       actions: read
-      
     steps:
       - name: Download ZIP artifact
         uses: actions/download-artifact@v4
@@ -447,7 +419,7 @@ jobs:
           echo "TIME_FORM=$TIME_FORM" >> $GITHUB_ENV
           TAG_HEAD="OPPO+OPlus+Realme-A15-build"
           echo "TAG_HEAD=$TAG_HEAD" >> $GITHUB_ENV
-         
+
       - name: Create release
         id: create_release
         uses: softprops/action-gh-release@v1
