@@ -138,13 +138,14 @@ jobs:
           
           git submodule update --init --recursive
 
-      - name: "⭐Apply SUSFS Patches"
+      - name: Apply SUSFS Patches
         run: |
           echo "Changing to configuration directory: $CONFIG..."
           cd "$CONFIG/kernel_platform"
           
           echo "Applying SUSFS patches..."
           
+          # Copy SUSFS patches
           cp ../../susfs4ksu/kernel_patches/50_add_susfs_in_gki-${{ inputs.android_version }}-${{ inputs.kernel_version }}.patch ./common/
           cp ../../susfs4ksu/kernel_patches/fs/* ./common/fs/
           cp ../../susfs4ksu/kernel_patches/include/linux/* ./common/include/linux/
@@ -157,6 +158,7 @@ jobs:
             patch -p1 --forward < ksun_susfs_latest.patch || true
           fi
           
+          # Determine base version based on branch
           case "${{ inputs.ksun_branch }}" in
             next|stable)
               BASE_VERSION=10200
@@ -174,24 +176,27 @@ jobs:
           echo "KSUVER=$KSU_VERSION" >> $GITHUB_ENV
           sed -i "s/DKSU_VERSION=11998/DKSU_VERSION=${KSU_VERSION}/" Makefile
           
+          # Change to common directory and apply SUSFS patch
           cd ../../common
           if [ "${{ inputs.soc }}" == "sun" ]; then
             sed -i '/#include <trace\/hooks\/blk.h>/a #include <trace/hooks/fs.h>' ./fs/namespace.c
           fi
           patch -p1 < 50_add_susfs_in_gki-${{ inputs.android_version }}-${{ inputs.kernel_version }}.patch || true
 
-      - name: "⭐Apply KSUN Hooks"
+      - name: Apply KSUN Hooks
         run: |
           echo "Changing to configuration directory: $CONFIG..."
           cd "$CONFIG/kernel_platform/common"
           echo "Applying KSUN Hooks..."
-          cp ../../../kernel_patches/next/syscall_hooks.patch ./
+          # cp ../../../kernel_patches/next/syscall_hooks.patch ./
+          cp ../../../kernel_patches_additional/scope_min_manual_hooks_v1.3.patch ./syscall_hooks.patch
           patch -p1 --fuzz=3 < ./syscall_hooks.patch
           
-      - name: "⭐Apply Hide Stuff Patches"
+      - name: Apply Hide Stuff Patches
         run: |
           echo "Changing to configuration directory: $CONFIG..."
           cd "$CONFIG/kernel_platform/common"
+          # Apply additional patch
           cp ../../../kernel_patches/69_hide_stuff.patch ./
           patch -p1 -F 3 < 69_hide_stuff.patch          
 
