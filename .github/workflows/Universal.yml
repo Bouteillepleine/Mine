@@ -1,17 +1,20 @@
-name: Android 15 Universal
+name: Oplus Android 15 Universal
 
 env:
-  TZ: Europe
+  TZ: EUROPE
   CPU: 'sm8650'
   FEIL: 'oppo+oplus+realme'
   ANDROID_VERSION: 'android14'
   KERNEL_VERSION: '6.1'
-  KERNEL_NAME: 'android14-11-o-g4c9c8979e2a7'
+  KERNEL_NAME: 'android14-11-o-g239209decfd3'
   KERNELSU_VARIANT: 'SukiSU-Ultra'
   KERNELSU_BRANCH: 'susfs-dev'
 
 on:
   workflow_dispatch:
+  # Uncomment the following code to enable daily scheduled compilation
+#  schedule:
+#    - cron: '0 23 * * *'  # UTC time 23:00 (Beijing time next day 07:00)
     inputs:
       lz4k_enable:
         description: 'Whether to install LZ4K patch'
@@ -30,7 +33,7 @@ on:
           - 'true'
           - 'false'
       kernel_suffix:
-        description: 'Kernel suffix (leave empty for default, do not add a hyphen at the start)'
+        description: 'Kernel suffix (leave empty for default, do not add hyphen at the start)'
         required: false
         type: string
         default: ''
@@ -49,7 +52,7 @@ on:
         required: true
         default: true
       ksu_type:
-        description: 'KSU type to use'
+        description: 'Which KSU to use'
         required: true
         type: choice
         options:
@@ -70,7 +73,7 @@ jobs:
       # ksuver: ${{ steps.ksu_version.outputs.ksuver }}
       ksuver: ${{ env.KSUVER }}
     steps:
-      - name: Maximize Build Space
+      - name: Maximize build space
         uses: easimon/maximize-build-space@master
         with:
           root-reserve-mb: 8192
@@ -81,7 +84,7 @@ jobs:
           remove-haskell: 'true'
           remove-codeql: 'true'
 
-      - name: Show Selected Inputs Debug
+      - name: Show selected inputs debug
         run: |
           echo "Selected lz4k_enable: ${{ github.event.inputs.lz4k_enable }}"
           echo "Selected scx_enable: ${{ github.event.inputs.scx_enable }}"
@@ -91,7 +94,7 @@ jobs:
           echo "Selected ksu_type: ${{ github.event.inputs.ksu_type }}"
           echo "Selected ksun_branch: ${{ github.event.inputs.ksun_branch }}"
           
-      - name: Install and Configure Environment Dependencies
+      - name: Install and configure environment dependencies
         run: |
           sudo apt-mark hold firefox
           sudo apt update && sudo apt upgrade -y
@@ -100,30 +103,41 @@ jobs:
           sudo wget https://apt.llvm.org/llvm.sh
           sudo chmod +x llvm.sh
           sudo ./llvm.sh 20 all
-      - name: Initialize Source Repository
+
+      - name: Initialize source repository
         run: |
-          rm -rf kernel_workspace && mkdir kernel_workspace && cd kernel_workspace
-          echo "Cloning source repository..."
-          # git clone --depth=1 https://github.com/cctv18/android_kernel_common_oneplus_sm8650 -b oneplus/sm8650_v_15.0.0_oneplus12 common         
+          # ===== Initialize repository =====
+          echo ">>> Initializing repository..."
+          rm -rf kernel_workspace
+          mkdir kernel_workspace
+          cd kernel_workspace
+          git clone --depth 1 https://github.com/OnePlusOSS/android_kernel_modules_and_devicetree_oneplus_sm8650/ -b oneplus/"${{ github.event.inputs.basebranch }}"  vendor
+          mv vendor/* ..
+          git clone --depth=1 https://github.com/OnePlusOSS/android_kernel_common_oneplus_sm8650 -b oneplus/"${{ github.event.inputs.basebranch }}" common
+          echo ">>> Repository initialization complete"
           
-          if [[ "${{ github.event.inputs.basebranch }}" == "realme_GT5pro-AndroidV-common-source" ]]; then
-            git clone --depth=1 https://github.com/realme-kernel-opensource/realme_GT5pro-AndroidV-common-source.git common
-          else
-            git clone --depth=1 https://github.com/OnePlusOSS/android_kernel_common_oneplus_sm8650 -b oneplus/"${{ github.event.inputs.basebranch }}" common
-          fi  
+          # rm -rf kernel_workspace && mkdir kernel_workspace && cd kernel_workspace
+          # echo "Cloning source repository..."
+          # # git clone --depth=1 https://github.com/cctv18/android_kernel_common_oneplus_sm8650 -b oneplus/sm8650_v_15.0.0_oneplus12 common         
+          
+          # if [[ "${{ github.event.inputs.basebranch }}" == "realme_GT5pro-AndroidV-common-source" ]]; then
+          #   git clone --depth=1 https://github.com/realme-kernel-opensource/realme_GT5pro-AndroidV-common-source.git common
+          # else
+          #   git clone --depth=1 https://github.com/OnePlusOSS/android_kernel_common_oneplus_sm8650 -b oneplus/"${{ github.event.inputs.basebranch }}" common
+          # fi  
           
           git clone https://github.com/Carl1984/oppo_oplus_realme_sm8650.git
           cp ./oppo_oplus_realme_sm8650/patches/001-lz4.patch ./common/
           cp ./oppo_oplus_realme_sm8650/patches/002-zstd.patch ./common/
           
-          rm -rf ./common/drivers/soc/oplus/*
-          cp -r ./oppo_oplus_realme_sm8650/Vendor/* ./common/drivers/soc/oplus/
-          rm -rf ./common/kernel/locking/locking_main.h
-          cp ./oppo_oplus_realme_sm8650/patches/locking_main.h ./common/kernel/locking/
-          rm -rf ./common/kernel/locking/oplus_locking.c
-          cp ./oppo_oplus_realme_sm8650/patches/oplus_locking.c ./common/kernel/locking/
-          rm -rf ./common/kernel/locking/sa_common_struct.h
-          cp ./oppo_oplus_realme_sm8650/patches/sa_common_struct.h ./common/kernel/locking/
+          # rm -rf ./common/drivers/soc/oplus/*
+          # cp -r ./oppo_oplus_realme_sm8650/Vendor/* ./common/drivers/soc/oplus/
+          # rm -rf ./common/kernel/locking/locking_main.h
+          # cp ./oppo_oplus_realme_sm8650/patches/locking_main.h ./common/kernel/locking/
+          # rm -rf ./common/kernel/locking/oplus_locking.c
+          # cp ./oppo_oplus_realme_sm8650/patches/oplus_locking.c ./common/kernel/locking/
+          # rm -rf ./common/kernel/locking/sa_common_struct.h
+          # cp ./oppo_oplus_realme_sm8650/patches/sa_common_struct.h ./common/kernel/locking/
           
           echo "Removing ABI protection & dirty suffix..."
           rm common/android/abi_gki_protected_exports_* || true
@@ -131,6 +145,7 @@ jobs:
             sed -i 's/ -dirty//g' "$f"
             sed -i '$i res=$(echo "$res" | sed '\''s/-dirty//g'\'')' "$f"
           done
+
       - name: Add SukiSU-Ultra
         if: ${{github.event.inputs.ksu_type == 'SukiUltra'}}
         id: ksu_version
@@ -143,7 +158,8 @@ jobs:
           echo "ksuver=$KSU_VERSION" >> $GITHUB_OUTPUT
           export KSU_VERSION=$KSU_VERSION
           sed -i "s/DKSU_VERSION=12800/DKSU_VERSION=$KSU_VERSION/" kernel/Makefile
-      - name: Apply SUSFS Patch for SukiSU-Ultra
+
+      - name: Apply SUSFS patches for SukiSU-Ultra
         if: ${{github.event.inputs.ksu_type == 'SukiUltra'}}
         run: |
           cd kernel_workspace
@@ -156,12 +172,14 @@ jobs:
           cd ./common
           patch -p1 < 50_add_susfs_in_gki-${{ env.ANDROID_VERSION }}-${{ env.KERNEL_VERSION }}.patch || true
           patch -p1 < new_hooks.patch
-      - name: Apply Hide Stuff Patch
+
+      - name: Apply Hide Stuff patches
         if: ${{github.event.inputs.ksu_type == 'SukiUltra'}}
         run: |
           cd kernel_workspace/common
           cp ../SukiSU_patch/69_hide_stuff.patch ./
           patch -p1 < 69_hide_stuff.patch
+
       - name: Set up KernelSU Next
         if: ${{github.event.inputs.ksu_type == 'ksun'}}
         run: |
@@ -178,7 +196,8 @@ jobs:
           echo "KSUVER=$KSU_VERSION" >> $GITHUB_ENV
           echo "ksuver=$KSU_VERSION" >> $GITHUB_OUTPUT
           sed -i "s/DKSU_VERSION=11998/DKSU_VERSION=${KSU_VERSION}/" kernel/Makefile
-      - name: Apply SUSFS Patch for ksun
+
+      - name: Apply SUSFS patches for ksun
         if: ${{github.event.inputs.ksu_type == 'ksun'}}
         run: |
           cd kernel_workspace
@@ -206,13 +225,13 @@ jobs:
           cp ../kernel_patches/69_hide_stuff.patch ./
           patch -p1 -F 3 < 69_hide_stuff.patch
           
-      - name: Apply LZ4 Patch  
+      - name: Apply lz4 patch  
         run: |
           cd kernel_workspace/common
           patch -p1 < 001-lz4.patch
           patch -p1 < 002-zstd.patch
-          
-      - name: Apply LZ4K Patch
+
+      - name: Apply lz4k patch
         run: |
           if [[ "${{ github.event.inputs.lz4k_enable }}" == "true" ]]; then
             cd kernel_workspace/common
@@ -222,87 +241,109 @@ jobs:
             cp ../SukiSU_patch/other/zram/zram_patch/${{ env.KERNEL_VERSION }}/lz4kd.patch ./
             patch -p1 -F 3 < lz4kd.patch || true
           fi
-          
-      - name: Add SUSFS Configuration Settings
+
+      - name: Add SUSFS configuration settings
         run: |
           cd kernel_workspace
-          echo "CONFIG_KSU=y" >> ./common/arch/arm64/configs/gki_defconfig
+          CONFIG_FILE=./common/arch/arm64/configs/gki_defconfig
+          DEFCONFIG=./common/arch/arm64/configs/gki_defconfig
+          echo "CONFIG_KSU=y" >> "$CONFIG_FILE"
           if [[ "${{ github.event.inputs.ksu_type }}" == "SukiUltra" ]]; then
             if [[ "${{ github.event.inputs.KPM }}" == "true" ]]; then
-              echo "CONFIG_KPM=y" >> ./common/arch/arm64/configs/gki_defconfig
+              echo "CONFIG_KPM=y" >> "$CONFIG_FILE"
             fi
-            echo "CONFIG_KSU_MANUAL_HOOK=y" >> ./common/arch/arm64/configs/gki_defconfig
+            echo "CONFIG_KSU_MANUAL_HOOK=y" >> "$CONFIG_FILE"
           fi
           if [[ "${{ github.event.inputs.ksu_type }}" == "ksun" ]]; then
-            echo "CONFIG_KSU_WITH_KPROBES=n" >> ./common/arch/arm64/configs/gki_defconfig
-            echo "CONFIG_KSU_KPROBES_HOOK=n" >> ./common/arch/arm64/configs/gki_defconfig
+            echo "CONFIG_KSU_WITH_KPROBES=n" >> "$CONFIG_FILE"
+            echo "CONFIG_KSU_KPROBES_HOOK=n" >> "$CONFIG_FILE"
           fi
-          echo "CONFIG_KSU_SUSFS_SUS_SU=n" >> ./common/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_KSU_SUSFS=y" >> ./common/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_KSU_SUSFS_HAS_MAGIC_MOUNT=y" >> ./common/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_KSU_SUSFS_SUS_PATH=y" >> ./common/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_KSU_SUSFS_SUS_MOUNT=y" >> ./common/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_KSU_SUSFS_AUTO_ADD_SUS_KSU_DEFAULT_MOUNT=y" >> ./common/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_KSU_SUSFS_AUTO_ADD_SUS_BIND_MOUNT=y" >> ./common/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_KSU_SUSFS_SUS_KSTAT=y" >> ./common/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_KSU_SUSFS_SUS_OVERLAYFS=n" >> ./common/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_KSU_SUSFS_TRY_UMOUNT=y" >> ./common/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_KSU_SUSFS_AUTO_ADD_TRY_UMOUNT_FOR_BIND_MOUNT=y" >> ./common/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_KSU_SUSFS_SPOOF_UNAME=y" >> ./common/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_KSU_SUSFS_ENABLE_LOG=y" >> ./common/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_KSU_SUSFS_HIDE_KSU_SUSFS_SYMBOLS=y" >> ./common/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_KSU_SUSFS_SPOOF_CMDLINE_OR_BOOTCONFIG=y" >> ./common/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_KSU_SUSFS_OPEN_REDIRECT=y" >> ./common/arch/arm64/configs/gki_defconfig
-          # TMPFS
-          echo "CONFIG_TMPFS_XATTR=y" >> ./common/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_TMPFS_POSIX_ACL=y" >> ./common/arch/arm64/configs/gki_defconfig
-          # BBR and Network
-          echo "CONFIG_TCP_CONG_ADVANCED=y" >> ./common/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_TCP_CONG_BBR=y" >> ./common/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_DEFAULT_TCP_CONG=\"bbr\"" >> ./common/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_TCP_CONG_CDG=y" >> ./common/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_DEFAULT_BBR=y" >> ./common/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_NET_SCH_DEFAULT=y" >> ./common/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_DEFAULT_FQ=y" >> ./common/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_DEFAULT_NET_SCH=\"fq\"" >> ./common/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_NET_SCH_SFQ=y" >> ./common/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_NET_SCH_FQ_CODEL=y" >> ./common/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_TCP_CONG_BIC=n" >> ./common/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_TCP_CONG_WESTWOOD=n" >> ./common/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_NET_SCH_TBF=y" >> ./common/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_TCP_CONG_HTCP=y" >> ./common/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_IP_NF_TARGET_ECN=y" >> ./common/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_IP_ECN=y" >> ./common/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_TCP_ECN=y" >> ./common/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_TCP_FASTOPEN=y" >> ./common/arch/arm64/configs/gki_defconfig
-          # TTL Support
-          echo "CONFIG_IP_NF_TARGET_TTL=y" >> ./common/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_IP6_NF_TARGET_HL=y" >> ./common/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_IP6_NF_MATCH_HL=y" >> ./common/arch/arm64/configs/gki_defconfig
-          # Disable Blacklisted Modules
-          echo "CONFIG_EXT4_INODE_TEST=n" >> ./common/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_F_FS_IPC_LOG=n" >> ./common/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_HUNG_TASK_ENH=n" >> ./common/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_IIO_TEST_FORMAT=n" >> ./common/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_OPLUS_BSP_SIGKILL_DIAGNOSIS=n" >> ./common/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_OPLUS_LOCK_TORTURE=n" >> ./common/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_SOC_TOPOLOGY_TEST=n" >> ./common/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_SOC_UTILS_TEST=n" >> ./common/arch/arm64/configs/gki_defconfig
-          # Disable Debug
-          echo "CONFIG_DEBUG_KERNEL=n" >> ./common/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_DYNAMIC_DEBUG=n" >> ./common/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_DEBUG_INFO=n" >> ./common/arch/arm64/configs/gki_defconfig
+          echo "CONFIG_KSU_SUSFS_SUS_SU=n" >> "$CONFIG_FILE"
+          echo "CONFIG_KSU_SUSFS=y" >> "$CONFIG_FILE"
+          echo "CONFIG_KSU_SUSFS_HAS_MAGIC_MOUNT=y" >> "$CONFIG_FILE"
+          echo "CONFIG_KSU_SUSFS_SUS_PATH=y" >> "$CONFIG_FILE"
+          echo "CONFIG_KSU_SUSFS_SUS_MOUNT=y" >> "$CONFIG_FILE"
+          echo "CONFIG_KSU_SUSFS_AUTO_ADD_SUS_KSU_DEFAULT_MOUNT=y" >> "$CONFIG_FILE"
+          echo "CONFIG_KSU_SUSFS_AUTO_ADD_SUS_BIND_MOUNT=y" >> "$CONFIG_FILE"
+          echo "CONFIG_KSU_SUSFS_SUS_KSTAT=y" >> "$CONFIG_FILE"
+          echo "CONFIG_KSU_SUSFS_SUS_OVERLAYFS=n" >> "$CONFIG_FILE"
+          echo "CONFIG_KSU_SUSFS_TRY_UMOUNT=y" >> "$CONFIG_FILE"
+          echo "CONFIG_KSU_SUSFS_AUTO_ADD_TRY_UMOUNT_FOR_BIND_MOUNT=y" >> "$CONFIG_FILE"
+          echo "CONFIG_KSU_SUSFS_SPOOF_UNAME=y" >> "$CONFIG_FILE"
+          echo "CONFIG_KSU_SUSFS_ENABLE_LOG=y" >> "$CONFIG_FILE"
+          echo "CONFIG_KSU_SUSFS_HIDE_KSU_SUSFS_SYMBOLS=y" >> "$CONFIG_FILE"
+          echo "CONFIG_KSU_SUSFS_SPOOF_CMDLINE_OR_BOOTCONFIG=y" >> "$CONFIG_FILE"
+          echo "CONFIG_KSU_SUSFS_OPEN_REDIRECT=y" >> "$CONFIG_FILE"
           if [[ "${{ github.event.inputs.lz4k_enable }}" == "true" ]]; then
-            echo "CONFIG_ZSMALLOC=y" >> ./common/arch/arm64/configs/gki_defconfig
-            echo "CONFIG_CRYPTO_LZ4HC=y" >> ./common/arch/arm64/configs/gki_defconfig
-            echo "CONFIG_CRYPTO_LZ4K=y" >> ./common/arch/arm64/configs/gki_defconfig
-            echo "CONFIG_CRYPTO_LZ4KD=y" >> ./common/arch/arm64/configs/gki_defconfig
-            echo "CONFIG_CRYPTO_842=y" >> ./common/arch/arm64/configs/gki_defconfig
+            echo "CONFIG_ZSMALLOC=y" >> "$CONFIG_FILE"
+            echo "CONFIG_CRYPTO_LZ4HC=y" >> "$CONFIG_FILE"
+            echo "CONFIG_CRYPTO_LZ4K=y" >> "$CONFIG_FILE"
+            echo "CONFIG_CRYPTO_LZ4KD=y" >> "$CONFIG_FILE"
+            echo "CONFIG_CRYPTO_842=y" >> "$CONFIG_FILE"
+            # The following configurations have not been verified for necessity, pending testing
+            #echo "CONFIG_ZRAM_WRITEBACK=y" >> "$CONFIG_FILE"
+            #sed -i 's/CONFIG_ZRAM=m/CONFIG_ZRAM=y/g' "$CONFIG_FILE"
+            #sed -i 's/CONFIG_MODULE_SIG=y/CONFIG_MODULE_SIG=n/g' "$CONFIG_FILE"
           fi
+          # Additional configurations for ThinLTO
+          echo "CONFIG_THINLTO=y" >> "$CONFIG_FILE"
+          # Additional configurations from create_release step
+          echo "CONFIG_TMPFS_XATTR=y" >> "$CONFIG_FILE"
+          echo "CONFIG_TMPFS_POSIX_ACL=y" >> "$CONFIG_FILE"
+          echo "CONFIG_TCP_CONG_ADVANCED=y" >> "$CONFIG_FILE"
+          echo "CONFIG_TCP_CONG_BBR=y" >> "$CONFIG_FILE"
+          echo "CONFIG_DEFAULT_BBR=y" >> "$CONFIG_FILE"
+          echo "CONFIG_TCP_CONG_BIC=n" >> "$CONFIG_FILE"
+          echo "CONFIG_TCP_CONG_WESTWOOD=n" >> "$CONFIG_FILE"
+          echo "CONFIG_TCP_CONG_HTCP=n" >> "$CONFIG_FILE"
+          echo "CONFIG_TCP_CONG_CDG=y" >> "$CONFIG_FILE"
+          echo "CONFIG_TCP_CONG_DCTCP=y" >> "$CONFIG_FILE"
+          echo "CONFIG_NET_SCH_FQ=y" >> "$CONFIG_FILE"
+          echo "CONFIG_NET_SCH_FQ_CODEL=y" >> "$CONFIG_FILE"
+          echo "CONFIG_NET_SCH_SFQ=y" >> "$CONFIG_FILE"
+          echo "CONFIG_NET_SCH_TBF=y" >> "$CONFIG_FILE"
+          echo "CONFIG_IP_ECN=y" >> "$CONFIG_FILE"
+          echo "CONFIG_TCP_ECN=y" >> "$CONFIG_FILE"
+          echo "CONFIG_IPV6_ECN=y" >> "$CONFIG_FILE"
+          echo "CONFIG_IP_NF_TARGET_ECN=y" >> "$CONFIG_FILE"
+          echo "CONFIG_TCP_FASTOPEN=y" >> "$CONFIG_FILE"
+          echo "CONFIG_IP_NF_TARGET_TTL=y" >> "$CONFIG_FILE"
+          echo "CONFIG_IP6_NF_TARGET_HL=y" >> "$CONFIG_FILE"
+          echo "CONFIG_IP6_NF_MATCH_HL=y" >> "$CONFIG_FILE"
+          echo "CONFIG_EXT4_INODE_TEST=n" >> "$CONFIG_FILE"
+          echo "CONFIG_F_FS_IPC_LOG=n" >> "$CONFIG_FILE"
+          echo "CONFIG_HUNG_TASK_ENH=n" >> "$CONFIG_FILE"
+          echo "CONFIG_IIO_TEST_FORMAT=n" >> "$CONFIG_FILE"
+          echo "CONFIG_OPLUS_BSP_SIGKILL_DIAGNOSIS=n" >> "$CONFIG_FILE"
+          echo "CONFIG_OPLUS_LOCK_TORTURE=n" >> "$CONFIG_FILE"
+          echo "CONFIG_SOC_TOPOLOGY_TEST=n" >> "$CONFIG_FILE"
+          echo "CONFIG_SOC_UTILS_TEST=n" >> "$CONFIG_FILE"
+          echo "CONFIG_DEBUG_KERNEL=n" >> "$CONFIG_FILE"
+          echo "CONFIG_DYNAMIC_DEBUG=n" >> "$CONFIG_FILE"
+          echo "CONFIG_DEBUG_INFO=n" >> "$CONFIG_FILE"
+          echo "CONFIG_BOEFFLA_WL_BLOCKER=y" >> "$DEFCONFIG"
+          echo "CONFIG_WQ_POWER_EFFICIENT_DEFAULT=y" >> "$DEFCONFIG"
+          echo "CONFIG_CC_OPTIMIZE_FOR_PERFORMANCE=y" >> "$DEFCONFIG"
+          sed -i "s/CONFIG_PRINTK_TIME=y/CONFIG_PRINTK_TIME=n/" "$DEFCONFIG"
+          sed -i "s/CONFIG_PRINTK_CALLER=y/CONFIG_PRINTK_CALLER=n/" "$DEFCONFIG"
           # Disable defconfig check
           sed -i 's/check_defconfig//' ./common/build.config.gki
-          
-      - name: Add Build Name
+          cd common
+          git add -A && git commit -a -m "Add SUSFS, wakelock blocker, optimization configuration, and ThinLTO" || echo "No changes to commit"
+
+      - name: Update Kconfig for Blacklisted Modules
+        run: |
+          find kernel_workspace/kernel_platform -name Kconfig -exec sed -i \
+            -e 's/CONFIG_EXT4_INODE_TEST=[ym]/CONFIG_EXT4_INODE_TEST=n/' \
+            -e 's/CONFIG_F_FS_IPC_LOG=[ym]/CONFIG_F_FS_IPC_LOG=n/' \
+            -e 's/CONFIG_HUNG_TASK_ENH=[ym]/CONFIG_HUNG_TASK_ENH=n/' \
+            -e 's/CONFIG_IIO_TEST_FORMAT=[ym]/CONFIG_IIO_TEST_FORMAT=n/' \
+            -e 's/CONFIG_OPLUS_BSP_SIGKILL_DIAGNOSIS=[ym]/CONFIG_OPLUS_BSP_SIGKILL_DIAGNOSIS=n/' \
+            -e 's/CONFIG_OPLUS_LOCK_TORTURE=[ym]/CONFIG_OPLUS_LOCK_TORTURE=n/' \
+            -e 's/CONFIG_SOC_TOPOLOGY_TEST=[ym]/CONFIG_SOC_TOPOLOGY_TEST=n/' \
+            -e 's/CONFIG_SOC_UTILS_TEST=[ym]/CONFIG_SOC_UTILS_TEST=n/' {} \;
+
+      - name: Add build name
         run: |
           cd kernel_workspace
           echo "Replacing kernel version suffix..."
@@ -318,7 +359,7 @@ jobs:
             done
           fi
            
-      - name: Build Kernel
+      - name: Build kernel with ThinLTO
         run: |
           cd kernel_workspace
           if [[ ${{ github.event.inputs.scx_enable }} == "true" ]]; then
@@ -328,10 +369,11 @@ jobs:
             cp -r ./sched_ext/* ./common/kernel/sched
           fi
           cd common
-          make -j$(nproc --all) LLVM=-20 ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- CROSS_COMPILE_ARM32=arm-linux-gnuabeihf- CC=clang LD=ld.lld HOSTCC=clang HOSTLD=ld.lld O=out KCFLAGS+=-Wno-error gki_defconfig all
-          echo "Kernel compilation completed!"
+          # Ensure ThinLTO flags are passed explicitly
+          make -j$(nproc --all) LLVM=-20 ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- CROSS_COMPILE_ARM32=arm-linux-gnuabeihf- CC=clang LD=ld.lld HOSTCC=clang HOSTLD=ld.lld O=out KCFLAGS+=-Wno-error LTO=thin gki_defconfig all
+          echo "Kernel compilation with ThinLTO complete!"
          
-      - name: Apply KPM Patch and Patch Kernel
+      - name: Apply KPM patch and patch kernel
         if: ${{github.event.inputs.ksu_type == 'SukiUltra' && github.event.inputs.KPM == 'true' }}
         run: |
           cd kernel_workspace/common/out/arch/arm64/boot
@@ -341,12 +383,13 @@ jobs:
           ./patch_linux
           rm -f Image
           mv oImage Image     
-      - name: Set Suffix
+
+      - name: Set suffix
         id: suffix
         run: |
-          echo "value=${{ github.event.inputs.KPM == 'true' && '_KPM' || '' }}${{ github.event.inputs.scx_enable == 'true' && '_SCX' || '' }}${{ github.event.inputs.lz4k_enable == 'true' && '_LZ4KD' || '' }}" >> $GITHUB_OUTPUT
+          echo "value=${{ github.event.inputs.KPM == 'true' && '_KPM' || '' }}${{ github.event.inputs.scx_enable == 'true' && '_SCX' || '' }}${{ github.event.inputs.lz4k_enable == 'true' && '_LZ4KD' || '' }}_ThinLTO" >> $GITHUB_OUTPUT
           
-      - name: Clone AnyKernel3 and Package
+      - name: Clone AnyKernel3 and package
         run: |
           cd kernel_workspace
           git clone https://github.com/cctv18/AnyKernel3 --depth=1
@@ -365,8 +408,75 @@ jobs:
           else
             zip -r ../AnyKernel3_${{ github.event.inputs.ksu_type }}_${{ env.KSUVER }}${{ steps.suffix.outputs.value }}_${{ env.KERNEL_NAME }}.zip ./*
           fi
-      - name: Upload ZIP Artifact
+
+      - name: Upload ZIP artifact
         uses: actions/upload-artifact@v4
         with:
           name: Kernel_ZIP_Artifacts
           path: ${{ github.workspace }}/kernel_workspace/*.zip
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      packages: write
+      actions: read
+      
+    steps:
+      - name: Download ZIP artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: Kernel_ZIP_Artifacts
+          path: ./release_zips
+
+      - name: Set environment variables
+        run: |
+          if [[ -n "${{ github.event.inputs.kernel_suffix }}" ]]; then
+            FULL_VERSION=${{ format('{0}.75-{1}', env.KERNEL_VERSION, github.event.inputs.kernel_suffix) }}
+            echo "FULL_VERSION=$FULL_VERSION" >> $GITHUB_ENV
+            export FULL_VERSION=$FULL_VERSION
+          else
+            FULL_VERSION=${{ format('{0}.75-{1}', env.KERNEL_VERSION, env.KERNEL_NAME) }}
+            echo "FULL_VERSION=$FULL_VERSION" >> $GITHUB_ENV
+            export FULL_VERSION=$FULL_VERSION
+          fi
+          TIME="$(TZ='Asia/Shanghai' date +'%y%m%d%H%M%S')"
+          TIME_FORM="$(TZ='Asia/Shanghai' date +'%Y-%m-%d %H:%M:%S')"
+          echo "TIME=$TIME" >> $GITHUB_ENV
+          echo "TIME_FORM=$TIME_FORM" >> $GITHUB_ENV
+          TAG_HEAD="OPPO+OPlus+Realme-A15-build"
+          echo "TAG_HEAD=$TAG_HEAD" >> $GITHUB_ENV
+         
+      - name: Create release
+        id: create_release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: "${{ env.TAG_HEAD }}-${{ env.TIME }}"
+          name: "${{ env.TAG_HEAD }}-${{ env.FULL_VERSION }}-ThinLTO"
+          body: |
+            ### 📱 Oplus Android 15 KSU SM8650 Universal Kernel with ThinLTO | Build Information
+            - Kernel version: ${{ env.FULL_VERSION }}
+            - Build time: ${{ env.TIME_FORM }}
+            - Device: Oplus Snapdragon 8Gen3 6.1 Android 15 kernel universal (based on ${{ github.event.inputs.basebranch }} Android 15 official OKI source)
+            - Features: SUSFS + VFS, ThinLTO enabled
+            - KSU Type: ${{ github.event.inputs.ksu_type }}
+            - KPM: ${{ github.event.inputs.KPM }} (when KSU is SukiSU)
+            - KPM: ${{ github.event.inputs.ksun_branch }} (when KSU is KSU Next)
+            - LZ4K support: ${{ github.event.inputs.lz4k_enable }}
+            - Fengchi kernel support: ${{ github.event.inputs.scx_enable }}
+            - Recommended system: ColorOS 15 / RealmeUI 6.0
+            - SukiSU manager download: [SukiSU-Ultra](https://github.com/ShirkNeko/SukiSU-Ultra/releases)
+            - KSU Next manager: [KernelSU-Next](https://github.com/KernelSU-Next/KernelSU-Next/releases)
+            ### ⏫️ Update content:
+            - Updated KSU to the latest version (${{ needs.build.outputs.ksuver }})
+            - Enabled ThinLTO for improved performance and binary size
+            ### 📋 Installation method | Installation Guide
+            1. If your phone has a third-party recovery (e.g., TWRP), download the AnyKernel flash package for your device, enter Recovery mode, flash the package via Recovery, and reboot.
+            2. If your phone already has root access, install [HorizonKernelFlasher](https://github.com/libxzr/HorizonKernelFlasher/releases), flash the AnyKernel package in HorizonKernelFlasher, and reboot.
+            3. If you have previously flashed the SukiSU Ultra kernel and the SukiSU Ultra manager is updated to the latest version, you can flash the AnyKernel package directly in the SukiSU Ultra manager and reboot.
+            ※※※Flashing kernels carries risks. To prevent unexpected issues that could brick your phone, please back up critical boot partitions like boot using [KernelFlasher](https://github.com/capntrips/KernelFlasher) before flashing the kernel!※※※
+          draft: false
+          prerelease: false
+          files: |
+            release_zips/AnyKernel3_*.zip
