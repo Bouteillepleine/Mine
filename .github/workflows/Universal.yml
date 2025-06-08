@@ -1,7 +1,7 @@
 name: Oplus Android 15 Universal
 
 env:
-  TZ: Asia/Shanghai
+  TZ: Europe
   CPU: 'sm8650'
   FEIL: 'oppo+oplus+realme'
   ANDROID_VERSION: 'android14'
@@ -215,11 +215,6 @@ jobs:
           cp ../SukiSU_patch/other/zram/zram_patch/${{ env.KERNEL_VERSION }}/lz4kd.patch ./
           patch -p1 -F 3 < lz4kd.patch || true
 
-      - name: Configure Git identity
-        run: |
-          git config --local user.name "GitHub Action"
-          git config --local user.email "action@github.com"
-
       - name: Add SUSFS configuration settings
         run: |
           cd kernel_workspace
@@ -300,6 +295,8 @@ jobs:
           sed -i "s/CONFIG_PRINTK_CALLER=y/CONFIG_PRINTK_CALLER=n/" "$DEFCONFIG"
           sed -i 's/check_defconfig//' ./common/build.config.gki
           cd common
+          git config --local user.name "GitHub Action"
+          git config --local user.email "action@github.com"
           git add -A && git commit -a -m "Add SUSFS, wakelock blocker, optimization configuration, and ThinLTO" || echo "No changes to commit"
 
       - name: Update Kconfig for Blacklisted Modules
