@@ -180,31 +180,50 @@ jobs:
           export KSU_VERSION=$KSU_VERSION
           sed -i "s/DKSU_VERSION=12800/DKSU_VERSION=${KSU_VERSION}/" kernel/Makefile
         
-            # Set up SUSFS and apply patches
+       # Set up SUSFS and apply patches
       - name: Set up susfs
         run: |
           cd kernel_workspace
           git clone https://gitlab.com/simonpunk/susfs4ksu.git -b gki-${{ inputs.ANDROID_VERSION }}-${{ inputs.KERNEL_VERSION }} --single-branch --depth=1 --no-tags
           git clone https://github.com/ShirkNeko/SukiSU_patch.git --single-branch --depth=1 --no-tags
-          cd kernel_platform
-          cp ../susfs4ksu/kernel_patches/50_add_susfs_in_gki-${{ inputs.ANDROID_VERSION }}-${{ inputs.KERNEL_VERSION }}.patch ./common/
-          cp ../susfs4ksu/kernel_patches/fs/* ./common/fs/
-          cp ../susfs4ksu/kernel_patches/include/linux/* ./common/include/linux/
-          
-          # Copy LZ4K files
-          cp -r ../SukiSU_patch/other/zram/lz4k/include/linux/* ./common/include/linux
-          cp -r ../SukiSU_patch/other/zram/lz4k/lib/* ./common/lib
-          cp -r ../SukiSU_patch/other/zram/lz4k/crypto/* ./common/crypto
-          cp -r ../SukiSU_patch/other/zram/lz4k_oplus ./common/lib/
-          
-          # Test and apply patches
-          cd ./common
-          MODEL="${{ inputs.FEIL }}"
-          if { [[ "$MODEL" =~ oneplus_13 || "$MODEL" =~ ace5_pro ]]; } && [[ "$MODEL" != "oneplus_13t" ]]; then
-            FILENAME="50_add_susfs_in_gki-${{ inputs.ANDROID_VERSION }}-${{ inputs.KERNEL_VERSION }}.patch"
-            sed -i 's/-32,12 +32,38/-32,11 +32,37/g' "$FILENAME"
-            sed -i '/#include <trace\/hooks\/fs.h>/d' "$FILENAME"
+          cd kernel_platform/common
+          if [ "${{ inputs.ksun_branch }}" == "stable" ] || [ "${{ inputs.ksun_branch }}" == "next" ]; then
+            echo "Applying next SUSFS patches..."
+            cp ../../../kernel_patches/next/0001-kernel-patch-susfs-v1.5.7-to-KernelSU-Next-v1.0.7.patch ./ksun_susfs_latest.patch
+            if ! patch --dry-run -p1 < ksun_susfs_latest.patch; then
+              echo "::error::Dry-run failed for ksun_susfs_latest.patch"
+              exit 1
+            fi
+            if ! patch -p1 --forward < ksun_susfs_latest.patch; then
+              echo "::error::Failed to apply ksun_susfs_latest.patch"
+              exit 1
+            fi
+          else
+            echo "Applying standard SUSFS patches..."
+            cp ../../susfs4ksu/kernel_patches/50_add_susfs_in_gki-${{ inputs.ANDROID_VERSION }}-${{ inputs.KERNEL_VERSION }}.patch ./
+            cp -r ../../susfs4ksu/kernel_patches/fs/* ./fs/
+            cp -r ../../susfs4ksu/kernel_patches/include/linux/* ./include/linux/
+            MODEL="${{ inputs.FEIL }}"
+            if { [[ "$MODEL" =~ oneplus_13 || "$MODEL" =~ ace5_pro ]]; } && [[ "$MODEL" != "oneplus_13t" ]]; then
+              FILENAME="50_add_susfs_in_gki-${{ inputs.ANDROID_VERSION }}-${{ inputs.KERNEL_VERSION }}.patch"
+              sed -i 's/-32,12 +32,38/-32,11 +32,37/g' "$FILENAME"
+              sed -i '/#include <trace\/hooks\/fs.h>/d' "$FILENAME"
+            fi
+            if ! patch --dry-run -p1 < 50_add_susfs_in_gki-${{ inputs.ANDROID_VERSION }}-${{ inputs.KERNEL_VERSION }}.patch; then
+              echo "::error::Dry-run failed for SUSFS GKI patch"
+              exit 1
+            fi
+            if ! patch -p1 < 50_add_susfs_in_gki-${{ inputs.ANDROID_VERSION }}-${{ inputs.KERNEL_VERSION }}.patch; then
+              echo "::error::Failed to apply SUSFS GKI patch"
+              exit 1
+            fi
           fi
+          # Copy LZ4K files
+          cp -r ../../SukiSU_patch/other/zram/lz4k/include/linux/* ./include/linux/
+          cp -r ../../SukiSU_patch/other/zram/lz4k/lib/* ./lib/
+          cp -r ../../SukiSU_patch/other/zram/lz4k/crypto/* ./crypto/
+          cp -r ../../SukiSU_patch/other/zram/lz4k_oplus ./lib/
+          # Apply additional patches
           cp ../../SukiSU_patch/69_hide_stuff.patch ./
           if ! patch --dry-run -p1 -F 3 < 69_hide_stuff.patch; then
             echo "::error::Dry-run failed for 69_hide_stuff.patch"
@@ -212,14 +231,6 @@ jobs:
           fi
           if ! patch -p1 -F 3 < 69_hide_stuff.patch; then
             echo "::error::Failed to apply 69_hide_stuff.patch"
-            exit 1
-          fi
-          if ! patch --dry-run -p1 < 50_add_susfs_in_gki-${{ inputs.ANDROID_VERSION }}-${{ inputs.KERNEL_VERSION }}.patch; then
-            echo "::error::Dry-run failed for SUSFS GKI patch"
-            exit 1
-          fi
-          if ! patch -p1 < 50_add_susfs_in_gki-${{ inputs.ANDROID_VERSION }}-${{ inputs.KERNEL_VERSION }}.patch; then
-            echo "::error::Failed to apply SUSFS GKI patch"
             exit 1
           fi
           cp ../../kernel_patches_additional/scope_min_manual_hooks_v1.3.patch ./
