@@ -166,7 +166,8 @@ jobs:
           repo init -u https://github.com/OnePlusOSS/kernel_manifest.git -b refs/heads/oneplus/${{ inputs.CPU }} -m ${{ inputs.FEIL }}.xml --depth=1
           repo --trace sync -c -j$(nproc --all) --no-tags
           rm kernel_platform/common/android/abi_gki_protected_exports_* || echo "No protected exports!"
-          rm kernel_platform/msm-kernel/android/abi_gki_protected_exports_* || echo "No protected exports!"      
+          rm kernel_platform/msm-kernel/android/abi_gki_protected_exports_* || echo "No protected exports!"
+          git clone https://github.com/fatalcoder524/kernel_patches_additional.git
 
       # Set up SukiSU
       - name: Set up SukiSU
@@ -221,7 +222,7 @@ jobs:
             echo "::error::Failed to apply SUSFS GKI patch"
             exit 1
           fi
-          cp ../../SukiSU_patch/hooks/syscall_hooks.patch ./
+          cp ../../kernel_patches_additional/scope_min_manual_hooks_v1.3.patch ./
           if ! patch --dry-run -p1 -F 3 < syscall_hooks.patch; then
             echo "::error::Dry-run failed for syscall_hooks.patch"
             exit 1
@@ -230,7 +231,7 @@ jobs:
             echo "::error::Failed to apply syscall_hooks.patch"
             exit 1
           fi
-          echo "Patch completed"
+          echo "Patch completed"          
 
       # Apply HMBird patch
       - name: Apply HMBird GKI patch
