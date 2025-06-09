@@ -50,7 +50,7 @@ on:
       KERNEL_NAME:
         description: "Kernel Name"
         required: true
-        default: '-android15-8-ogki-3rc03gov329nav91b'
+        default: '-android14-11-o-ga7b5daa5t1b5'
       KERNEL_TIME:
         description: "Kernel Build Date"
         required: true
