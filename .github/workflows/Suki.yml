@@ -180,7 +180,7 @@ jobs:
           export KSU_VERSION=$KSU_VERSION
           sed -i "s/DKSU_VERSION=12800/DKSU_VERSION=${KSU_VERSION}/" kernel/Makefile
         
-      # Set up SUSFS and apply patches
+            # Set up SUSFS and apply patches
       - name: Set up susfs
         run: |
           cd kernel_workspace
@@ -223,16 +223,16 @@ jobs:
             exit 1
           fi
           cp ../../kernel_patches_additional/scope_min_manual_hooks_v1.3.patch ./
-          if ! patch --dry-run -p1 -F 3 < syscall_hooks.patch; then
-            echo "::error::Dry-run failed for syscall_hooks.patch"
+          if ! patch --dry-run -p1 -F 3 < scope_min_manual_hooks_v1.3.patch; then
+            echo "::error::Dry-run failed for scope_min_manual_hooks_v1.3.patch"
             exit 1
           fi
-          if ! patch -p1 -F 3 < syscall_hooks.patch; then
-            echo "::error::Failed to apply syscall_hooks.patch"
+          if ! patch -p1 -F 3 < scope_min_manual_hooks_v1.3.patch; then
+            echo "::error::Failed to apply scope_min_manual_hooks_v1.3.patch"
             exit 1
           fi
-          echo "Patch completed"          
-
+          echo "Patch completed"
+          
       # Apply HMBird patch
       - name: Apply HMBird GKI patch
         if: ${{ inputs.FEIL != 'oneplus_ace5' && inputs.FEIL != 'oneplus_13r' }}
