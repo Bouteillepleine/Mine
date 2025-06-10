@@ -167,7 +167,7 @@ jobs:
           repo --trace sync -c -j$(nproc --all) --no-tags
           rm kernel_platform/common/android/abi_gki_protected_exports_* || echo "No protected exports!"
           rm kernel_platform/msm-kernel/android/abi_gki_protected_exports_* || echo "No protected exports!"
-          git clone https://github.com/fatalcoder524/kernel_patches_additional.git
+          git clone https://github.com/luigimak/kernel_patches.git
 
       # Set up SukiSU
       - name: Set up SukiSU
@@ -189,8 +189,8 @@ jobs:
           cd kernel_platform/common
           if [ "${{ inputs.ksun_branch }}" == "stable" ] || [ "${{ inputs.ksun_branch }}" == "next" ]; then
             echo "Applying next SUSFS patches..."
-            cp ../../../kernel_patches/next/0001-kernel-patch-susfs-v1.5.7-to-KernelSU-Next-v1.0.7.patch ./ksun_susfs_latest.patch
-            if ! patch --dry-run -p1 < ksun_susfs_latest.patch; then
+            cp ../../../kernel_patches/next/fix_0001-kernel-patch-susfs-v1.5.7-to-KernelSU-Next-v1.0.7.patch ./ksun_susfs_latest.patch
+            if ! patch --dry-run -p1 < fix_0001-kernel-patch-susfs-v1.5.7-to-KernelSU-Next-v1.0.7.patch; then
               echo "::error::Dry-run failed for ksun_susfs_latest.patch"
               exit 1
             fi
@@ -233,13 +233,13 @@ jobs:
             echo "::error::Failed to apply 69_hide_stuff.patch"
             exit 1
           fi
-          cp ../../kernel_patches_additional/scope_min_manual_hooks_v1.3.patch ./
-          if ! patch --dry-run -p1 -F 3 < scope_min_manual_hooks_v1.3.patch; then
-            echo "::error::Dry-run failed for scope_min_manual_hooks_v1.3.patch"
+          cp ../../kernel_patches_additional/scope_min_manual_hooks_v1.4.patch ./
+          if ! patch --dry-run -p1 -F 3 < scope_min_manual_hooks_v1.4.patch; then
+            echo "::error::Dry-run failed for scope_min_manual_hooks_v1.4.patch"
             exit 1
           fi
-          if ! patch -p1 -F 3 < scope_min_manual_hooks_v1.3.patch; then
-            echo "::error::Failed to apply scope_min_manual_hooks_v1.3.patch"
+          if ! patch -p1 -F 3 < scope_min_manual_hooks_v1.4.patch; then
+            echo "::error::Failed to apply scope_min_manual_hooks_v1.4.patch"
             exit 1
           fi
           echo "Patch completed"
