@@ -179,8 +179,8 @@ jobs:
           echo "KSUVER=$KSU_VERSION" >> $GITHUB_ENV
           export KSU_VERSION=$KSU_VERSION
           sed -i "s/DKSU_VERSION=12800/DKSU_VERSION=${KSU_VERSION}/" kernel/Makefile
-        
-       # Set up SUSFS and apply patches
+
+      # Set up SUSFS and apply patches
       - name: Set up susfs
         run: |
           cd kernel_workspace
@@ -189,8 +189,8 @@ jobs:
           cd kernel_platform/common
           if [ "${{ inputs.ksun_branch }}" == "stable" ] || [ "${{ inputs.ksun_branch }}" == "next" ]; then
             echo "Applying next SUSFS patches..."
-            cp ../../../kernel_patches/next/fix_0001-kernel-patch-susfs-v1.5.7-to-KernelSU-Next-v1.0.7.patch ./ ./ksun_susfs_latest.patch
-            if ! patch --dry-run -p1 < fix_0001-kernel-patch-susfs-v1.5.7-to-KernelSU-Next-v1.0.7.patch; then
+            cp ../../../kernel_patches/next/fix_0001-kernel-patch-susfs-v1.5.7-to-KernelSU-Next-v1.0.7.patch ./ksun_susfs_latest.patch
+            if ! patch --dry-run -p1 < ksun_susfs_latest.patch; then
               echo "::error::Dry-run failed for ksun_susfs_latest.patch"
               exit 1
             fi
@@ -233,17 +233,23 @@ jobs:
             echo "::error::Failed to apply 69_hide_stuff.patch"
             exit 1
           fi
-          cp ../../kernel_patches_additional/scope_min_manual_hooks_v1.4.patch ./
-          if ! patch --dry-run -p1 -F 3 < scope_min_manual_hooks_v1.4.patch; then
-            echo "::error::Dry-run failed for scope_min_manual_hooks_v1.4.patch"
-            exit 1
-          fi
-          if ! patch -p1 -F 3 < scope_min_manual_hooks_v1.4.patch; then
-            echo "::error::Failed to apply scope_min_manual_hooks_v1.4.patch"
-            exit 1
+          # Apply scope_min_manual_hooks patch
+          echo "Applying scope_min_manual_hooks_v1.4.patch..."
+          if curl -L -o scope_min_manual_hooks_v1.4.patch https://github.com/luigimak/kernel_patches/raw/main/scope_min_manual_hooks_v1.4.patch; then
+            if ! patch --dry-run -p1 -F 3 < scope_min_manual_hooks_v1.4.patch; then
+              echo "::error::Dry-run failed for scope_min_manual_hooks_v1.4.patch"
+              exit 1
+            fi
+            if ! patch -p1 -F 3 --verbose < scope_min_manual_hooks_v1.4.patch; then
+              echo "::error::Failed to apply scope_min_manual_hooks_v1.4.patch"
+              exit 1
+            fi
+            echo "scope_min_manual_hooks_v1.4.patch applied successfully"
+          else
+            echo "::warning::scope_min_manual_hooks_v1.4.patch not found, skipping"
           fi
           echo "Patch completed"
-          
+
       # Apply HMBird patch
       - name: Apply HMBird GKI patch
         if: ${{ inputs.FEIL != 'oneplus_ace5' && inputs.FEIL != 'oneplus_13r' }}
@@ -282,32 +288,32 @@ jobs:
                         pr_info("hmbird_patch: kmalloc for new_prop failed\n");
                         of_node_put(ver_np);
                         return 0;
+                   }
+                   memcpy(new_prop, prop, sizeof(*prop));
+                   new_prop->value = kmalloc(strlen("HMBIRD_GKI") + 1, GFP_KERNEL);
+                   if (!new_prop->value) {
+                        pr_info("hmbird_patch: kmalloc for new_prop->value failed\n");
+                        kfree(new_prop);
+                        of_node_put(ver_np);
+                        return 0;
+                   }
+                   strcpy(new_prop->value, "HMBIRD_GKI");
+                   new_prop->length = strlen("HMBIRD_GKI") + 1;
+                   if (of_remove_property(ver_np, prop) != 0) {
+                        pr_info("hmbird_patch: of_remove_property failed\n");
+                        return 0;
+                   }
+                   if (of_add_property(ver_np, new_prop) !=0) {
+                        pr_info("hmbird_patch: of_add_property failed\n");
+                        return 0;
+                   }
+                   pr_info("hmbird_patch: success from HMBIRD_OGKI to HMBIRD_GKI\n");
               }
-              memcpy(new_prop, prop, sizeof(*prop));
-              new_prop->value = kmalloc(strlen("HMBIRD_GKI") + 1, GFP_KERNEL);
-              if (!new_prop->value) {
-                   pr_info("hmbird_patch: kmalloc for new_prop->value failed\n");
-                   kfree(new_prop);
-                   of_node_put(ver_np);
-                   return 0;
-             }
-             strcpy(new_prop->value, "HMBIRD_GKI");
-             new_prop->length = strlen("HMBIRD_GKI") + 1;
-             if (of_remove_property(ver_np, prop) != 0) {
-                  pr_info("hmbird_patch: of_remove_property failed\n");
-                  return 0;
-             }
-             if (of_add_property(ver_np, new_prop) !=0) {
-                  pr_info("hmbird_patch: of_add_property failed\n");
-                  return 0;
-             }
-             pr_info("hmbird_patch: success from HMBIRD_OGKI to HMBIRD_GKI\n");
-          }
-          else {
-              pr_info("hmbird_patch: type property structure not found\n");
-          }
-          of_node_put(ver_np);
-          return 0;
+              else {
+                  pr_info("hmbird_patch: type property structure not found\n");
+              }
+              of_node_put(ver_np);
+              return 0;
           }
           early_initcall(hmbird_patch_init);
           MODULE_LICENSE("GPL");
@@ -439,12 +445,14 @@ jobs:
           sudo sed -i 's/check_defconfig//' ./common/build.config.gki
           cd common
           git add -A && git commit -a -m "BUILD Kernel"
+
       # Set custom kernel name
       - name: Add kernel custom name
         run: |
           cd kernel_workspace/kernel_platform
           sed -i 's/${scm_version}//' ./common/scripts/setlocalversion
           sudo sed -i 's/-4k/${{ inputs.KERNEL_NAME }}/g' ./common/arch/arm64/configs/gki_defconfig
+
       # Add Fengchi scheduler
       - name: Add Fengchi
         if: ${{ inputs.KERNEL_VERSION == '6.6' }}
@@ -455,12 +463,14 @@ jobs:
           rm -rf ./sched_ext/.git
           cd common/kernel/sched
           sed -i.bak '/# include "ext.c"/a\# include "hmbird_sched_proc_main.c"\n#endif\n\n#ifdef CONFIG_SLIM_SCHED\n# include "slim_sysctl.c"' build_policy.c
-      # Set build timestamp                
+
+      # Set build timestamp
       - name: Set Kernel build timestamp
         run: |
           export SOURCE_DATE_EPOCH=$(date -d "${{ inputs.KERNEL_TIME }}" +%s)
           echo "SOURCE_DATE_EPOCH=$SOURCE_DATE_EPOCH" >> $GITHUB_ENV
           echo "BUILDDATE=$(date +'%Y%m%d')" >> $GITHUB_ENV
+
       # Build kernel
       - name: Build Kernel
         run: |
@@ -485,6 +495,7 @@ jobs:
               exit 1
             fi
           fi
+
       # Apply Linux patch
       - name: Apply Linux Patch
         run: |
@@ -502,6 +513,7 @@ jobs:
           fi
           rm -f Image
           mv oImage Image
+
       # Package with AnyKernel3
       - name: Make AnyKernel3
         env:
@@ -517,6 +529,7 @@ jobs:
           else
             cp kernel_workspace/kernel_platform/dist/Image ./AnyKernel3/
           fi
+
       # Upload AnyKernel3
       - name: Upload AnyKernel3
         env:
@@ -561,6 +574,7 @@ jobs:
           cd download
           cd ${{ env.IMG_FILE }} ; zip -r ../${{ env.IMG_FILE }}.zip . * ; cd ..
           cd ${{ env.ANYKERNEL3_FILE }} ; zip -r ../${{ env.ANYKERNEL3_FILE }}.zip . * ; cd ..
+
       # Upload build log on failure
       - name: Upload build log
         if: failure()
