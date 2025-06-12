@@ -19,19 +19,19 @@ on:
         default: false
 
 jobs:
-#  build-batch-1:
-#    strategy:
-#      fail-fast: false
-#      matrix:
-#        include:
-#           - model: OP11
-#             soc: kalama
-#             branch: oneplus/sm8550
-#             manifest: oneplus_11_v.xml
-#             android_version: android13
-#             kernel_version: "5.15"
+   build-batch-1:
+     strategy:
+      fail-fast: false
+      matrix:
+        include:
+           - model: OP11
+             soc: kalama
+             branch: oneplus/sm8550
+             manifest: oneplus_11_v.xml
+             android_version: android13
+             kernel_version: "5.15"
 #           - model: OP11r
- #            soc: waipio
+#             soc: waipio
 #             branch: oneplus/sm8475
 #             manifest: oneplus_11r_v.xml
 #             android_version: android12
@@ -72,17 +72,17 @@ jobs:
 #            manifest: oneplus_ace2pro_v.xml
 #            android_version: android13
 #            kernel_version: "5.15"
-#    uses: ./.github/workflows/build.yml
-#    secrets: inherit
-#    with:
-#      model: ${{ matrix.model }}
-#      soc: ${{ matrix.soc }}
-#      branch: ${{ matrix.branch }}
-#      manifest: ${{ matrix.manifest }}
-#      android_version: ${{ matrix.android_version }}
-#      kernel_version: ${{ matrix.kernel_version }}
+     uses: ./.github/workflows/build.yml
+     secrets: inherit
+     with:
+       model: ${{ matrix.model }}
+       soc: ${{ matrix.soc }}
+       branch: ${{ matrix.branch }}
+       manifest: ${{ matrix.manifest }}
+       android_version: ${{ matrix.android_version }}
+       kernel_version: ${{ matrix.kernel_version }}
 
-  build-batch-2:
+   build-batch-2:
     # needs: build-batch-1
     strategy:
       fail-fast: false
@@ -140,7 +140,7 @@ jobs:
       android_version: ${{ matrix.android_version }}
       kernel_version: ${{ matrix.kernel_version }}
 
-  trigger-release:
+   trigger-release:
     needs:
 #      - build-batch-1
       - build-batch-2
@@ -154,27 +154,7 @@ jobs:
       GH_TOKEN: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
       GITHUB_TOKEN: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
       RELEASE_NAME: "OnePlus Kernels With KernelSU-Next & SUSFS"
-      RELEASE_NOTES: |
-        This release contains KernelSU-Next and SUSFS
-
-        ඞ SUSFS Module: 
-        https://github.com/sidex15/ksu_module_susfs
-
-        ☯ KernelSU-Next Managers:
-        https://github.com/KernelSU-Next/KernelSU-Next
-
-        BBR Module:
-        https://github.com/fatalcoder524/TCP_Optimiser_Module
-
-        Features:
-        🔹 KernelSU-Next 1.0.7
-        🔹 SUSFS 1.5.7 
-        🔹 Manual Syscall Hooks for Better Hiding
-        🔹 Wireguard Support
-        🔹 Simple Maphide LineageOS Detections
-        🔹 Futile Maphide for jit-zygote-cache Detections
-        🔹 Magic Mount Support
-        🔹 BBR Support
+      RELEASE_NOTES: |       
 
     steps:
       - name: Checkout code
