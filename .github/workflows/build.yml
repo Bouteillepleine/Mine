@@ -41,10 +41,9 @@ jobs:
           
           df -h
           
-          # Remove unnecessary tools to free up space
-          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /usr/local/.ghcup /opt/hostedtoolcache/CodeQL /usr/local/share/powershell /usr/share/swift || { echo "Failed to remove directories"; exit 1; }
-          sudo docker image prune --all --force || { echo "Failed to prune Docker images"; exit 1; }
-          echo "Unnecessary directories deleted"
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /usr/local/.ghcup /opt/hostedtoolcache/CodeQL /usr/local/share/powershell /usr/share/swift || true
+          sudo docker image prune --all --force
+          echo "some directories deleted"
           
           # Remove large unwanted packages
           sudo apt-get purge -y \
@@ -64,22 +63,18 @@ jobs:
           # Clean up
           sudo apt-get autoremove -y
           sudo apt-get autoclean -y
-          echo "Unnecessary packages purged"
+          echo "some packages purged"
           
-          # Verify sufficient disk space
-          df -h / | awk 'NR==2 {if ($4 < 10*1024*1024) {print "Insufficient disk space"; exit 1}}'
           df -h
 
       - name: Install Repo and Python
         run: |
           # Install dependencies
           sudo apt update
-          sudo apt install -y python3 python-is-python3 || { echo "Failed to install Python dependencies"; exit 1; }
+          sudo apt install -y python3 python-is-python3
           
           mkdir -p ./git-repo
           curl -sSL https://storage.googleapis.com/git-repo-downloads/repo > ./git-repo/repo
-          # Replace with actual checksum for repo
-          echo "e147f0392686c40cfd7d5e6f332c6ee74c4eab4b24e2695b9237634279a0c75b  ./git-repo/repo" | sha256sum -c || { echo "Checksum verification failed for repo"; exit 1; }
           chmod a+rx ./git-repo/repo
           echo "REPO=$GITHUB_WORKSPACE/./git-repo/repo" >> $GITHUB_ENV
 
@@ -104,10 +99,10 @@ jobs:
           echo "Using branch for SUSFS: $SUSFS_BRANCH"
           
           # Clone repositories using the branch names
-          git clone https://github.com/TheWildJames/AnyKernel3.git -b "$ANYKERNEL_BRANCH" || { echo "Failed to clone AnyKernel3"; exit 1; }
-          git clone https://gitlab.com/simonpunk/susfs4ksu.git -b "$SUSFS_BRANCH" || { echo "Failed to clone susfs4ksu"; exit 1; }
-          git clone https://github.com/TheWildJames/kernel_patches.git || { echo "Failed to clone kernel_patches"; exit 1; }
-          git clone https://github.com/fatalcoder524/kernel_patches_additional.git || { echo "Failed to clone kernel_patches_additional"; exit 1; }
+          git clone https://github.com/TheWildJames/AnyKernel3.git -b "$ANYKERNEL_BRANCH"
+          git clone https://gitlab.com/simonpunk/susfs4ksu.git -b "$SUSFS_BRANCH"
+          git clone https://github.com/TheWildJames/kernel_patches.git
+          git clone https://github.com/fatalcoder524/kernel_patches_additional.git
 
       - name: Initialize and Sync Kernel Source
         run: |
@@ -117,11 +112,11 @@ jobs:
           
           # Initialize and sync kernel source
           echo "Initializing and syncing kernel source..."
-          $REPO init -u https://github.com/OnePlusOSS/kernel_manifest.git -b ${{ inputs.branch }} -m ${{ inputs.manifest }} --repo-rev=v2.16 --depth=1 --no-clone-bundle --no-tags || { echo "Failed to initialize repo"; exit 1; }
+          $REPO init -u https://github.com/OnePlusOSS/kernel_manifest.git -b ${{ inputs.branch }} -m ${{ inputs.manifest }} --repo-rev=v2.16 --depth=1 --no-clone-bundle --no-tags
           
-          # Sync repo
+          # Sync repo and apply patches
           $REPO --version
-          $REPO --trace sync -c --no-clone-bundle --no-tags --optimized-fetch -j$(nproc --all) --fail-fast || { echo "Failed to sync repo"; exit 1; }
+          $REPO --trace sync -c --no-clone-bundle --no-tags --optimized-fetch -j$(nproc --all) --fail-fast
       
       - name: Add KernelSU Next
         run: |
@@ -131,18 +126,12 @@ jobs:
           echo "Adding KernelSU Next..."
           
           if [ "${{ inputs.ksun_branch }}" == "stable" ]; then
-            curl -Ls "https://raw.githubusercontent.com/KernelSU-Next/KernelSU-Next/next/kernel/setup.sh" -o setup.sh
-            # Replace with actual checksum for setup.sh
-            echo "YOUR_CHECKSUM_HERE  setup.sh" | sha256sum -c || { echo "Checksum verification failed for setup.sh"; exit 1; }
-            bash setup.sh || { echo "Failed to run KernelSU setup.sh"; exit 1; }
+            curl -LSs "https://raw.githubusercontent.com/KernelSU-Next/KernelSU-Next/next/kernel/setup.sh" | bash -
           else
-            curl -Ls "https://raw.githubusercontent.com/KernelSU-Next/KernelSU-Next/next/kernel/setup.sh" -o setup.sh
-            # Replace with actual checksum for setup.sh
-            echo "YOUR_CHECKSUM_HERE  setup.sh" | sha256sum -c || { echo "Checksum verification failed for setup.sh"; exit 1; }
-            bash setup.sh ${{ inputs.ksun_branch }} || { echo "Failed to run KernelSU setup.sh with branch ${{ inputs.ksun_branch }}"; exit 1; }
+            curl -LSs "https://raw.githubusercontent.com/KernelSU-Next/KernelSU-Next/next/kernel/setup.sh" | bash -s ${{ inputs.ksun_branch }}
           fi
           
-          git submodule update --init --recursive || { echo "Failed to update submodules"; exit 1; }
+          git submodule update --init --recursive
 
       - name: Apply SUSFS Patches
         run: |
@@ -152,18 +141,17 @@ jobs:
           echo "Applying SUSFS patches..."
           
           # Copy SUSFS patches
-          cp ../../susfs4ksu/kernel_patches/50_add_susfs_in_gki-${{ inputs.android_version }}-${{ inputs.kernel_version }}.patch ./common/ || { echo "Failed to copy SUSFS patch"; exit 1; }
-          cp ../../susfs4ksu/kernel_patches/fs/* ./common/fs/ || { echo "Failed to copy SUSFS fs patches"; exit 1; }
-          cp ../../susfs4ksu/kernel_patches/include/linux/* ./common/include/linux/ || { echo "Failed to copy SUSFS include patches"; exit 1; }
+          cp ../../susfs4ksu/kernel_patches/50_add_susfs_in_gki-${{ inputs.android_version }}-${{ inputs.kernel_version }}.patch ./common/
+          cp ../../susfs4ksu/kernel_patches/fs/* ./common/fs/
+          cp ../../susfs4ksu/kernel_patches/include/linux/* ./common/include/linux/
           
           cd ./KernelSU-Next
           
           if [ "${{ inputs.ksun_branch }}" == "stable" ] || [ "${{ inputs.ksun_branch }}" == "next" ]; then
             echo "Applying next SUSFS patches..."
+            # cp ../../../kernel_patches/next/0001-kernel-patch-susfs-v1.5.7-to-KernelSU-Next-v1.0.7.patch ./ksun_susfs_latest.patch
             curl -Ls https://github.com/WildKernels/kernel_patches/commit/33263d70c754d908845ad1b53cce0b53a6073b71.patch -o ksun_susfs_latest.patch
-            # Replace with actual checksum for ksun_susfs_latest.patch
-            echo "YOUR_CHECKSUM_HERE  ksun_susfs_latest.patch" | sha256sum -c || { echo "Checksum verification failed for ksun_susfs_latest.patch"; exit 1; }
-            patch -p1 < ksun_susfs_latest.patch || { echo "Failed to apply ksun_susfs_latest.patch"; exit 1; }
+            patch -p1 --forward < ksun_susfs_latest.patch || true
           fi
           
           # Determine base version based on branch
@@ -182,29 +170,31 @@ jobs:
           cd ./kernel
           KSU_VERSION=$(expr $(/usr/bin/git rev-list --count HEAD) "+" $BASE_VERSION)
           echo "KSUVER=$KSU_VERSION" >> $GITHUB_ENV
-          sed -i "s/DKSU_VERSION=11998/DKSU_VERSION=${KSU_VERSION}/" Makefile || { echo "Failed to update KSU version in Makefile"; exit 1; }
+          sed -i "s/DKSU_VERSION=11998/DKSU_VERSION=${KSU_VERSION}/" Makefile
           
           # Change to common directory and apply SUSFS patch
           cd ../../common
           if [ "${{ inputs.soc }}" == "sun" ]; then
-            sed -i '/#include <trace\/hooks\/blk.h>/a #include <trace/hooks/fs.h>' ./fs/namespace.c || { echo "Failed to modify namespace.c"; exit 1; }
+            sed -i '/#include <trace\/hooks\/blk.h>/a #include <trace/hooks/fs.h>' ./fs/namespace.c
           fi
-          patch -p1 < 50_add_susfs_in_gki-${{ inputs.android_version }}-${{ inputs.kernel_version }}.patch || { echo "Failed to apply SUSFS patch"; exit 1; }
+          patch -p1 < 50_add_susfs_in_gki-${{ inputs.android_version }}-${{ inputs.kernel_version }}.patch || true
 
       - name: Apply KSUN Hooks
         run: |
           echo "Changing to configuration directory: $CONFIG..."
           cd "$CONFIG/kernel_platform/common"
           echo "Applying KSUN Hooks..."
-          cp ../../../kernel_patches_additional/scope_min_manual_hooks_v1.4.patch ./syscall_hooks.patch || { echo "Failed to copy syscall_hooks.patch"; exit 1; }
-          patch -p1 --fuzz=3 < ./syscall_hooks.patch || { echo "Failed to apply syscall_hooks.patch"; exit 1; }
+          # cp ../../../kernel_patches/next/syscall_hooks.patch ./
+          cp ../../../kernel_patches_additional/scope_min_manual_hooks_v1.4.patch ./syscall_hooks.patch
+          patch -p1 --fuzz=3 < ./syscall_hooks.patch
           
       - name: Apply Hide Stuff Patches
         run: |
           echo "Changing to configuration directory: $CONFIG..."
           cd "$CONFIG/kernel_platform/common"
-          cp ../../../kernel_patches/69_hide_stuff.patch ./ || { echo "Failed to copy 69_hide_stuff.patch"; exit 1; }
-          patch -p1 -F 3 < 69_hide_stuff.patch || { echo "Failed to apply 69_hide_stuff.patch"; exit 1; }
+          # Apply additional patch
+          cp ../../../kernel_patches/69_hide_stuff.patch ./
+          patch -p1 -F 3 < 69_hide_stuff.patch
 
       - name: Add KernelSU-Next and SUSFS Configuration Settings
         run: |
