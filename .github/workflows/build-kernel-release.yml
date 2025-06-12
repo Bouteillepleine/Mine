@@ -19,29 +19,29 @@ on:
         default: false
 
 jobs:
-  build-batch-1:
-    strategy:
+   build-batch-1:
+     strategy:
       fail-fast: false
       matrix:
         include:
-          - model: OP11
-            soc: kalama
-            branch: oneplus/sm8550
-            manifest: oneplus_11_v.xml
-            android_version: android13
-            kernel_version: "5.15"
-          - model: OP11r
-            soc: waipio
-            branch: oneplus/sm8475
-            manifest: oneplus_11r_v.xml
-            android_version: android12
-            kernel_version: "5.10"
-          - model: OP12r
-            soc: kalama
-            branch: oneplus/sm8550
-            manifest: oneplus_12r_v.xml
-            android_version: android13
-            kernel_version: "5.15"
+           - model: OP11
+             soc: kalama
+             branch: oneplus/sm8550
+             manifest: oneplus_11_v.xml
+             android_version: android13
+             kernel_version: "5.15"
+#           - model: OP11r
+#             soc: waipio
+#             branch: oneplus/sm8475
+#             manifest: oneplus_11r_v.xml
+#             android_version: android12
+#             kernel_version: "5.10"
+#           - model: OP12r
+#             soc: kalama
+#             branch: oneplus/sm8550
+#             manifest: oneplus_12r_v.xml
+#             android_version: android13
+#             kernel_version: "5.15"
 #          - model: OP-OPEN
 #            soc: kalama
 #            branch: oneplus/sm8550
@@ -54,35 +54,35 @@ jobs:
 #            manifest: oneplus_ace2_v.xml
 #            android_version: android12
 #            kernel_version: "5.10"
-          - model: OP10t
-            soc: waipio
-            branch: oneplus/sm8475
-            manifest: oneplus_10t_v.xml
-            android_version: android12
-            kernel_version: "5.10"
-          - model: OP10pro
-            soc: waipio
-            branch: oneplus/sm8450
-            manifest: oneplus_10_pro_v.xml
-            android_version: android12
-            kernel_version: "5.10"
+#           - model: OP10t
+#             soc: waipio
+#             branch: oneplus/sm8475
+#             manifest: oneplus_10t_v.xml
+#             android_version: android12
+#             kernel_version: "5.10"
+#           - model: OP10pro
+#             soc: waipio
+#             branch: oneplus/sm8450
+#             manifest: oneplus_10_pro_v.xml
+#             android_version: android12
+#             kernel_version: "5.10"
 #          - model: OP-ACE-2-PRO
 #            soc: kalama
 #            branch: oneplus/sm8550
 #            manifest: oneplus_ace2pro_v.xml
 #            android_version: android13
 #            kernel_version: "5.15"
-    uses: ./.github/workflows/build.yml
-    secrets: inherit
-    with:
-      model: ${{ matrix.model }}
-      soc: ${{ matrix.soc }}
-      branch: ${{ matrix.branch }}
-      manifest: ${{ matrix.manifest }}
-      android_version: ${{ matrix.android_version }}
-      kernel_version: ${{ matrix.kernel_version }}
+     uses: ./.github/workflows/build.yml
+     secrets: inherit
+     with:
+       model: ${{ matrix.model }}
+       soc: ${{ matrix.soc }}
+       branch: ${{ matrix.branch }}
+       manifest: ${{ matrix.manifest }}
+       android_version: ${{ matrix.android_version }}
+       kernel_version: ${{ matrix.kernel_version }}
 
-  build-batch-2:
+   build-batch-2:
     # needs: build-batch-1
     strategy:
       fail-fast: false
@@ -99,13 +99,7 @@ jobs:
 #            branch: oneplus/sm8750
 #            manifest: oneplus_ace5_pro.xml
 #            android_version: android15
-#            kernel_version: "6.6"
-          - model: OP12
-            soc: pineapple
-            branch: oneplus/sm8650
-            manifest: oneplus12_v.xml
-            android_version: android14
-            kernel_version: "6.1"
+#            kernel_version: "6.6"           
           - model: OP13r
             soc: pineapple
             branch: oneplus/sm8650
@@ -118,18 +112,18 @@ jobs:
 #            manifest: oneplus_ace5.xml
 #            android_version: android14
 #            kernel_version: "6.1"
-          - model: OPNORD4
-            soc: pineapple
-            branch: oneplus/sm7675
-            manifest: oneplus_nord_4_v.xml
-            android_version: android14
-            kernel_version: "6.1"
-          - model: OPNORDCE4
-            soc: crow
-            branch: oneplus/sm7550
-            manifest: oneplus_nord_ce4_v.xml
-            android_version: android14
-            kernel_version: "5.15"
+#          - model: OPNORD4
+#            soc: pineapple
+#            branch: oneplus/sm7675
+#            manifest: oneplus_nord_4_v.xml
+#            android_version: android14
+#            kernel_version: "6.1"
+#          - model: OPNORDCE4
+#            soc: crow
+#            branch: oneplus/sm7550
+#            manifest: oneplus_nord_ce4_v.xml
+ #           android_version: android14
+#            kernel_version: "5.15"
 #          - model: OP-PAD-2
 #            soc: pineapple
 #            branch: oneplus/sm8650
@@ -146,9 +140,9 @@ jobs:
       android_version: ${{ matrix.android_version }}
       kernel_version: ${{ matrix.kernel_version }}
 
-  trigger-release:
+   trigger-release:
     needs:
-      - build-batch-1
+#      - build-batch-1
       - build-batch-2
     runs-on: [self-hosted, ubuntu-24.04]
     if: ${{ inputs.make_release }}
@@ -160,28 +154,7 @@ jobs:
       GH_TOKEN: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
       GITHUB_TOKEN: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
       RELEASE_NAME: "OnePlus Kernels With KernelSU-Next & SUSFS"
-      RELEASE_NOTES: |
-        This release contains KernelSU-Next and SUSFS
-
-        ඞ SUSFS Module: 
-        https://github.com/sidex15/ksu_module_susfs
-
-        ☯ KernelSU-Next Managers:
-        https://github.com/KernelSU-Next/KernelSU-Next
-
-        BBR Module:
-        https://github.com/fatalcoder524/TCP_Optimiser_Module
-
-        Features:
-        🔹 KernelSU-Next 1.0.7
-        🔹 SUSFS 1.5.7 
-        🔹 Manual Syscall Hooks for Better Hiding
-        🔹 Wireguard Support
-        🔹 Simple Maphide LineageOS Detections
-        🔹 Futile Maphide for jit-zygote-cache Detections
-        🔹 Magic Mount Support
-        🔹 BBR Support
-
+      RELEASE_NOTES: |       
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
@@ -196,23 +169,17 @@ jobs:
           LATEST_NUM=$(gh api repos/$REPO_OWNER/$REPO_NAME/tags \
             --jq "[.[].name | select(test(\"^${TAG_PREFIX}[0-9]+$\")) | sub(\"${TAG_PREFIX}\"; \"\") | tonumber] | max" \
             || echo "0")
-
           echo "Latest numeric suffix for $TAG_PREFIX*: $LATEST_NUM"
-
           NEXT_NUM=$((LATEST_NUM + 1))
           NEW_TAG="${TAG_PREFIX}${NEXT_NUM}"
-
           while gh api repos/$REPO_OWNER/$REPO_NAME/git/refs/tags | grep -q "\"ref\": \"refs/tags/$NEW_TAG\""; do
             NEXT_NUM=$((NEXT_NUM + 1))
             NEW_TAG="${TAG_PREFIX}${NEXT_NUM}"
           done
-
           echo "NEW_TAG=$NEW_TAG" >> $GITHUB_ENV
           echo "🔹Generated unique tag: $NEW_TAG"
-
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-
           if git status --porcelain | grep -qE '\.github/workflows/'; then
             echo "⚠️ Workflow files modified, creating empty commit..."
             git commit --allow-empty -m "Empty commit to avoid workflow permission issue"
@@ -220,7 +187,6 @@ jobs:
           else
             echo "✅ No workflow changes detected."
           fi
-
           git tag "$NEW_TAG"
           git push origin "$NEW_TAG"
         env:
@@ -239,32 +205,27 @@ jobs:
           ATTEMPTS=0
           MAX_ATTEMPTS=3
           DELAY_SECONDS=10
-
           # flag prerelease
           if [ "${{ inputs.set_prerelease }}" = "true" ] || [ "${{ inputs.set_prerelease }}" = true ]; then
             PRERELEASE_FLAG="--prerelease"
           else
             PRERELEASE_FLAG=""
           fi
-
           while true; do
             set +e
             echo "Attempt $((ATTEMPTS+1)) to create GitHub Release..."
             gh release create "${{ env.NEW_TAG }}" --title "${{ env.RELEASE_NAME }}" --notes "${{ env.RELEASE_NOTES }}" $PRERELEASE_FLAG
             EXIT_CODE=$?
             set -e
-
             if [ $EXIT_CODE -eq 0 ]; then
               echo "✅ GitHub Release created successfully!"
               break
             fi
-
             ATTEMPTS=$((ATTEMPTS+1))
             if [ $ATTEMPTS -ge $MAX_ATTEMPTS ]; then
               echo "❌ Failed to create GitHub Release after $MAX_ATTEMPTS attempts."
               exit 1
             fi
-
             echo "⚠️ GitHub Release creation failed (attempt $ATTEMPTS). Retrying in $DELAY_SECONDS seconds..."
             sleep $DELAY_SECONDS
           done
