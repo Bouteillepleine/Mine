@@ -78,7 +78,8 @@ jobs:
           
           mkdir -p ./git-repo
           curl -sSL https://storage.googleapis.com/git-repo-downloads/repo > ./git-repo/repo
-          echo "expected_checksum  ./git-repo/repo" | sha256sum -c || { echo "Checksum verification failed for repo"; exit 1; }
+          # Replace with actual checksum for repo
+          echo "e147f0392686c40cfd7d5e6f332c6ee74c4eab4b24e2695b9237634279a0c75b  ./git-repo/repo" | sha256sum -c || { echo "Checksum verification failed for repo"; exit 1; }
           chmod a+rx ./git-repo/repo
           echo "REPO=$GITHUB_WORKSPACE/./git-repo/repo" >> $GITHUB_ENV
 
@@ -131,11 +132,13 @@ jobs:
           
           if [ "${{ inputs.ksun_branch }}" == "stable" ]; then
             curl -Ls "https://raw.githubusercontent.com/KernelSU-Next/KernelSU-Next/next/kernel/setup.sh" -o setup.sh
-            echo "expected_checksum  setup.sh" | sha256sum -c || { echo "Checksum verification failed for setup.sh"; exit 1; }
+            # Replace with actual checksum for setup.sh
+            echo "YOUR_CHECKSUM_HERE  setup.sh" | sha256sum -c || { echo "Checksum verification failed for setup.sh"; exit 1; }
             bash setup.sh || { echo "Failed to run KernelSU setup.sh"; exit 1; }
           else
             curl -Ls "https://raw.githubusercontent.com/KernelSU-Next/KernelSU-Next/next/kernel/setup.sh" -o setup.sh
-            echo "expected_checksum  setup.sh" | sha256sum -c || { echo "Checksum verification failed for setup.sh"; exit 1; }
+            # Replace with actual checksum for setup.sh
+            echo "YOUR_CHECKSUM_HERE  setup.sh" | sha256sum -c || { echo "Checksum verification failed for setup.sh"; exit 1; }
             bash setup.sh ${{ inputs.ksun_branch }} || { echo "Failed to run KernelSU setup.sh with branch ${{ inputs.ksun_branch }}"; exit 1; }
           fi
           
@@ -158,7 +161,8 @@ jobs:
           if [ "${{ inputs.ksun_branch }}" == "stable" ] || [ "${{ inputs.ksun_branch }}" == "next" ]; then
             echo "Applying next SUSFS patches..."
             curl -Ls https://github.com/WildKernels/kernel_patches/commit/33263d70c754d908845ad1b53cce0b53a6073b71.patch -o ksun_susfs_latest.patch
-            echo "expected_checksum  ksun_susfs_latest.patch" | sha256sum -c || { echo "Checksum verification failed for ksun_susfs_latest.patch"; exit 1; }
+            # Replace with actual checksum for ksun_susfs_latest.patch
+            echo "YOUR_CHECKSUM_HERE  ksun_susfs_latest.patch" | sha256sum -c || { echo "Checksum verification failed for ksun_susfs_latest.patch"; exit 1; }
             patch -p1 < ksun_susfs_latest.patch || { echo "Failed to apply ksun_susfs_latest.patch"; exit 1; }
           fi
           
@@ -321,9 +325,9 @@ jobs:
           sed -i 's/CONFIG_LTO_CLANG_NONE=y/CONFIG_LTO_CLANG_THIN=y/' "./common/arch/arm64/configs/gki_defconfig" || { echo "Failed to set CONFIG_LTO_CLANG_THIN"; exit 1; }
           
           sed -i 's/check_defconfig//' ./common/build.config.gki || { echo "Failed to modify build.config.gki"; exit 1; }
-          sed -i '$s|echo "\$res"|echo "\$res"|' ./common/scripts/setlocalversion || { echo "Failed to modify setlocalversion (common)"; exit 1; }
-          sed -i '$s|echo "\$res"|echo "\$res"|' ./msm-kernel/scripts/setlocalversion || { echo "Failed to modify setlocalversion (msm-kernel)"; exit 1; }
-          sed -i '$s|echo "\$res"|echo "\$res"|' ./external/dtc/scripts/setlocalversion || { echo "Failed to modify setlocalversion (dtc)"; exit 1; }
+          sed -i '$s|echo "\$res"|echo "\$res-Wild"|' ./common/scripts/setlocalversion || { echo "Failed to modify setlocalversion (common)"; exit 1; }
+          sed -i '$s|echo "\$res"|echo "\$res-Wild"|' ./msm-kernel/scripts/setlocalversion || { echo "Failed to modify setlocalversion (msm-kernel)"; exit 1; }
+          sed -i '$s|echo "\$res"|echo "\$res-Wild"|' ./external/dtc/scripts/setlocalversion || { echo "Failed to modify setlocalversion (dtc)"; exit 1; }
           sed -i "/stable_scmversion_cmd/s/-maybe-dirty//g" ./build/kernel/kleaf/impl/stamp.bzl || echo "No stamp.bzl found, skipping"
           sed -i 's/-dirty//' ./common/scripts/setlocalversion || { echo "Failed to remove -dirty from setlocalversion (common)"; exit 1; }
           sed -i 's/-dirty//' ./msm-kernel/scripts/setlocalversion || { echo "Failed to remove -dirty from setlocalversion (msm-kernel)"; exit 1; }
