@@ -302,18 +302,18 @@ jobs:
 
       - name: Update Kconfig for Blacklisted Modules
         run: |
-          echo "Changing to kernel_platform directory: $CONFIG/kernel_platform..."
-          cd "$CONFIG/kernel_platform"
+          echo "Changing to kernel_platform directory: kernel_platform..."
+          cd "kernel_platform"
           
-          if [ ! -d "$CONFIG/kernel_platform" ]; then
-            echo "Error: $CONFIG/kernel_platform directory not found"
+          if [ ! -d "kernel_platform" ]; then
+            echo "Error: kernel_platform directory not found"
             exit 1
           fi
           
-          echo "Searching for Kconfig files in $CONFIG/kernel_platform..."
+          echo "Searching for Kconfig files in kernel_platform..."
           KCONFIG_FILES=$(find . -name Kconfig)
           if [ -z "$KCONFIG_FILES" ]; then
-            echo "No Kconfig files found in $CONFIG/kernel_platform. Skipping Kconfig updates."
+            echo "No Kconfig files found in kernel_platform. Skipping Kconfig updates."
           else
             echo "Found Kconfig files:"
             echo "$KCONFIG_FILES"
