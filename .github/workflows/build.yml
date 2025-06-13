@@ -291,21 +291,12 @@ jobs:
           
           # Disable printk configurations
           sed -i 's/CONFIG_PRINTK_TIME=y/CONFIG_PRINTK_TIME=n/' "$CONFIG_FILE"
-          sed -i 's/CONFIG_PRINTK_CALLER=y/CONFIG_PRINTK_CALLER=n/' "$CONFIG_FILE"
-          
-          # Modify build config
-          sed -i 's/check_defconfig//' ./common/build.config.gki
-          
-          # Configure Git user identity
-          git config user.name "GitHub Actions"
-          git config user.email "actions@github.com"
-          
-          # Commit changes
-          cd common
-          git add -A && git commit -a -m "Add SUSFS, wakelock blocker, and optimization configuration" || echo "No changes to commit"
-
+          sed -i 's/CONFIG_PRINTK_CALLER=y/CONFIG_PRINTK_CALLER=n/' "$CONFIG_FILE"        
+                            
       - name: Update Kconfig for Blacklisted Modules
         run: |
+          echo "Changing to configuration directory: $CONFIG..."
+          cd "$CONFIG/kernel_platform"
           set -x
           find $CONFIG/kernel_platform -name Kconfig -exec sed -i \
             -e 's/CONFIG_EXT4_INODE_TEST=[ym]/CONFIG_EXT4_INODE_TEST=n/' \
@@ -340,9 +331,9 @@ jobs:
           
           # Run sed commands for modifications
           sed -i 's/check_defconfig//' ./common/build.config.gki
-          sed -i '$s|echo "\$res"|echo "\$res-Wild"|' ./common/scripts/setlocalversion
-          sed -i '$s|echo "\$res"|echo "\$res-Wild"|' ./msm-kernel/scripts/setlocalversion
-          sed -i '$s|echo "\$res"|echo "\$res-Wild"|' ./external/dtc/scripts/setlocalversion
+          sed -i '$s|echo "\$res"|echo "\$res"|' ./common/scripts/setlocalversion
+          sed -i '$s|echo "\$res"|echo "\$res"|' ./msm-kernel/scripts/setlocalversion
+          sed -i '$s|echo "\$res"|echo "\$res"|' ./external/dtc/scripts/setlocalversion
           sed -i "/stable_scmversion_cmd/s/-maybe-dirty//g" ./build/kernel/kleaf/impl/stamp.bzl || echo "No stamp.bzl!"
           sed -i 's/-dirty//' ./common/scripts/setlocalversion
           sed -i 's/-dirty//' ./msm-kernel/scripts/setlocalversion
