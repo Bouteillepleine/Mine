@@ -260,6 +260,11 @@ jobs:
           echo "CONFIG_IP_NF_TARGET_ECN=y" >> "$CONFIG_FILE"
           echo "CONFIG_TCP_FASTOPEN=y" >> "$CONFIG_FILE"
           
+          # Add TLL configurations      
+          echo "CONFIG_IP_NF_TARGET_TTL=y" >> ./common/arch/arm64/configs/gki_defconfig
+          echo "CONFIG_IP6_NF_TARGET_HL=y" >> ./common/arch/arm64/configs/gki_defconfig
+          echo "CONFIG_IP6_NF_MATCH_HL=y" >> ./common/arch/arm64/configs/gki_defconfig
+          
           # Add performance and wakelock blocker configurations
           echo "CONFIG_BOEFFLA_WL_BLOCKER=y" >> "$CONFIG_FILE"
           echo "CONFIG_WQ_POWER_EFFICIENT_DEFAULT=y" >> "$CONFIG_FILE"
@@ -292,54 +297,20 @@ jobs:
           # Disable printk configurations
           sed -i 's/CONFIG_PRINTK_TIME=y/CONFIG_PRINTK_TIME=n/' "$CONFIG_FILE"
           sed -i 's/CONFIG_PRINTK_CALLER=y/CONFIG_PRINTK_CALLER=n/' "$CONFIG_FILE"
-          
-          # Modify build config
-          sed -i 's/check_defconfig//' ./common/build.config.gki
-          
-          # Debug: Print gki_defconfig to verify changes
-          echo "Contents of gki_defconfig:"
-          cat "$CONFIG_FILE"
-
+                 
       - name: Update Kconfig for Blacklisted Modules
         run: |
-          echo "Changing to kernel_platform directory: kernel_platform..."
-          cd "kernel_platform"
-          
-          if [ ! -d "kernel_platform" ]; then
-            echo "Error: kernel_platform directory not found"
-            exit 1
-          fi
-          
-          echo "Searching for Kconfig files in kernel_platform..."
-          KCONFIG_FILES=$(find . -name Kconfig)
-          if [ -z "$KCONFIG_FILES" ]; then
-            echo "No Kconfig files found in kernel_platform. Skipping Kconfig updates."
-          else
-            echo "Found Kconfig files:"
-            echo "$KCONFIG_FILES"
-            set -x
-            find . -name Kconfig -exec sed -i \
-              -e 's/CONFIG_EXT4_INODE_TEST=[ym]/CONFIG_EXT4_INODE_TEST=n/' \
-              -e 's/CONFIG_F_FS_IPC_LOG=[ym]/CONFIG_F_FS_IPC_LOG=n/' \
-              -e 's/CONFIG_HUNG_TASK_ENH=[ym]/CONFIG_HUNG_TASK_ENH=n/' \
-              -e 's/CONFIG_IIO_TEST_FORMAT=[ym]/CONFIG_IIO_TEST_FORMAT=n/' \
-              -e 's/CONFIG_OPLUS_BSP_SIGKILL_DIAGNOSIS=[ym]/CONFIG_OPLUS_BSP_SIGKILL_DIAGNOSIS=n/' \
-              -e 's/CONFIG_OPLUS_LOCK_TORTURE=[ym]/CONFIG_OPLUS_LOCK_TORTURE=n/' \
-              -e 's/CONFIG_SOC_TOPOLOGY_TEST=[ym]/CONFIG_SOC_TOPOLOGY_TEST=n/' \
-              -e 's/CONFIG_SOC_UTILS_TEST=[ym]/CONFIG_SOC_UTILS_TEST=n/' {} \; || true
-            set +x
-          fi
-
-      - name: Add TTL Target Support
-        run: |
-          echo "Changing to configuration directory: $CONFIG..."
-          cd "$CONFIG/kernel_platform"
-          
-          echo "Adding TTL configuration settings to gki_defconfig..."
-          echo "CONFIG_IP_NF_TARGET_TTL=y" >> ./common/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_IP6_NF_TARGET_HL=y" >> ./common/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_IP6_NF_MATCH_HL=y" >> ./common/arch/arm64/configs/gki_defconfig
-
+          echo "Updating Kconfig files to blacklist specific modules..."
+          find "$CONFIG/kernel_platform" -name Kconfig -exec sed -i \
+            -e 's/CONFIG_EXT4_INODE_TEST=[ym]/CONFIG_EXT4_INODE_TEST=n/' \
+            -e 's/CONFIG_F_FS_IPC_LOG=[ym]/CONFIG_F_FS_IPC_LOG=n/' \
+            -e 's/CONFIG_HUNG_TASK_ENH=[ym]/CONFIG_HUNG_TASK_ENH=n/' \
+            -e 's/CONFIG_IIO_TEST_FORMAT=[ym]/CONFIG_IIO_TEST_FORMAT=n/' \
+            -e 's/CONFIG_OPLUS_BSP_SIGKILL_DIAGNOSIS=[ym]/CONFIG_OPLUS_BSP_SIGKILL_DIAGNOSIS=n/' \
+            -e 's/CONFIG_OPLUS_LOCK_TORTURE=[ym]/CONFIG_OPLUS_LOCK_TORTURE=n/' \
+            -e 's/CONFIG_SOC_TOPOLOGY_TEST=[ym]/CONFIG_SOC_TOPOLOGY_TEST=n/' \
+            -e 's/CONFIG_SOC_UTILS_TEST=[ym]/CONFIG_SOC_UTILS_TEST=n/' {} \;
+                  
       - name: Run sed and perl Commands
         run: |
           echo "Changing to configuration directory: $CONFIG..."
