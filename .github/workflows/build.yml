@@ -113,10 +113,18 @@ jobs:
           echo "Initializing and syncing kernel source..."
           $REPO init -u https://github.com/OnePlusOSS/kernel_manifest.git -b ${{ inputs.branch }} -m ${{ inputs.manifest }} --repo-rev=v2.16 --depth=1 --no-clone-bundle --no-tags
           
+          echo "Contents of manifest file:"
+          cat .repo/manifests/${{ inputs.manifest }} || echo "Manifest file not found"
+          
           # Sync repo and apply patches
           $REPO --version
           $REPO --trace sync -c --no-clone-bundle --no-tags --optimized-fetch -j$(nproc --all) --fail-fast
-      
+          
+          echo "Directory structure after repo sync:"
+          ls -la
+          echo "Contents of kernel_platform if it exists:"
+          ls -la kernel_platform || echo "kernel_platform not found"
+
       - name: Add KernelSU Next
         run: |
           echo "Changing to configuration directory: $CONFIG..."
@@ -130,7 +138,12 @@ jobs:
             curl -LSs "https://raw.githubusercontent.com/KernelSU-Next/KernelSU-Next/next/kernel/setup.sh" | bash -s ${{ inputs.ksun_branch }}
           fi
           
-          git submodule update --init --recursive
+          if [ -f ./scripts/submodule_update.sh ]; then
+            bash ./scripts/submodule_update.sh || echo "Submodule update script failed"
+          else
+            echo "submodule_update.sh not found, attempting manual submodule update..."
+            git submodule update --init --recursive || echo "Manual submodule update failed"
+          fi
 
       - name: Apply SUSFS Patches
         run: |
@@ -149,7 +162,7 @@ jobs:
           if [ "${{ inputs.ksun_branch }}" == "stable" ] || [ "${{ inputs.ksun_branch }}" == "next" ]; then
             echo "Applying next SUSFS patches..."
             cp ../../../kernel_patches/next/ksun_susfs_v1.5.7_patch_12647+.patch ./ksun_susfs_latest.patch
-            patch -p1 --forward < ksun_susfs_latest.patch || true
+            patch -p1 --forward < ksun_susfs_latest.patch || echo "Failed to apply ksun_susfs_latest.patch, may be already applied"
           fi
           
           # Determine base version based on branch
@@ -179,14 +192,14 @@ jobs:
                   echo "Line already present. Skipping insert."
               fi
           fi
-          patch -p1 < 50_add_susfs_in_gki-${{ inputs.android_version }}-${{ inputs.kernel_version }}.patch || true
+          patch -p1 < 50_add_susfs_in_gki-${{ inputs.android_version }}-${{ inputs.kernel_version }}.patch || echo "Failed to apply SUSFS patch, may be already applied"
           
           KERNEL_VERSION="${{ inputs.kernel_version }}"
           MIN_VERSION="5.16"
           
           if [ "$(printf '%s\n' "$KERNEL_VERSION" "$MIN_VERSION" | sort -V | head -n1)" = "$KERNEL_VERSION" ]; then
             echo "Patching ptrace!"
-            curl -Ls https://raw.githubusercontent.com/fatalcoder524/kernel_patches_additional/refs/heads/main/ptrace.patch  | patch -p1 -F 3
+            curl -Ls https://raw.githubusercontent.com/fatalcoder524/kernel_patches_additional/refs/heads/main/ptrace.patch | patch -p1 -F 3 || echo "Failed to apply ptrace patch"
           else
             echo "Kernel >= $MIN_VERSION, skipping ptrace patch"
           fi
@@ -198,7 +211,7 @@ jobs:
           echo "Applying KSUN Hooks..."
           cp ../../../kernel_patches/next/scope_min_manual_hooks_v1.4.patch ./manual_hooks.patch
           patch -p1 --fuzz=3 < ./manual_hooks.patch
-          
+
       - name: Apply Hide Stuff Patches
         run: |
           echo "Changing to configuration directory: $CONFIG..."
@@ -297,20 +310,51 @@ jobs:
           # Disable printk configurations
           sed -i 's/CONFIG_PRINTK_TIME=y/CONFIG_PRINTK_TIME=n/' "$CONFIG_FILE"
           sed -i 's/CONFIG_PRINTK_CALLER=y/CONFIG_PRINTK_CALLER=n/' "$CONFIG_FILE"
-                 
+
+      - name: Debug Directory Structure
+        run: |
+          echo "Current working directory: $(pwd)"
+          echo "Listing contents of $CONFIG directory:"
+          ls -la "$CONFIG" || echo "$CONFIG directory not found"
+          echo "Listing contents of $CONFIG/kernel_platform if it exists:"
+          ls -la "$CONFIG/kernel_platform" || echo "$CONFIG/kernel_platform directory not found"
+          echo "Searching for kernel_platform directory:"
+          find /home/runner/work/Mine/Mine -type d -name kernel_platform
+
       - name: Update Kconfig for Blacklisted Modules
         run: |
-          echo "Updating Kconfig files to blacklist specific modules..."
-          find "$CONFIG/kernel_platform" -name Kconfig -exec sed -i \
-            -e 's/CONFIG_EXT4_INODE_TEST=[ym]/CONFIG_EXT4_INODE_TEST=n/' \
-            -e 's/CONFIG_F_FS_IPC_LOG=[ym]/CONFIG_F_FS_IPC_LOG=n/' \
-            -e 's/CONFIG_HUNG_TASK_ENH=[ym]/CONFIG_HUNG_TASK_ENH=n/' \
-            -e 's/CONFIG_IIO_TEST_FORMAT=[ym]/CONFIG_IIO_TEST_FORMAT=n/' \
-            -e 's/CONFIG_OPLUS_BSP_SIGKILL_DIAGNOSIS=[ym]/CONFIG_OPLUS_BSP_SIGKILL_DIAGNOSIS=n/' \
-            -e 's/CONFIG_OPLUS_LOCK_TORTURE=[ym]/CONFIG_OPLUS_LOCK_TORTURE=n/' \
-            -e 's/CONFIG_SOC_TOPOLOGY_TEST=[ym]/CONFIG_SOC_TOPOLOGY_TEST=n/' \
-            -e 's/CONFIG_SOC_UTILS_TEST=[ym]/CONFIG_SOC_UTILS_TEST=n/' {} \;
-                  
+          echo "Changing to repository root..."
+          cd /home/runner/work/Mine/Mine
+          
+          echo "Checking for kernel_platform directory: $CONFIG/kernel_platform..."
+          if [ ! -d "$CONFIG/kernel_platform" ]; then
+            echo "Warning: $CONFIG/kernel_platform directory not found. Skipping Kconfig updates."
+            exit 0
+          fi
+          
+          echo "Changing to kernel_platform directory: $CONFIG/kernel_platform..."
+          cd "$CONFIG/kernel_platform"
+          
+          echo "Searching for Kconfig files in $CONFIG/kernel_platform..."
+          KCONFIG_FILES=$(find . -name Kconfig)
+          if [ -z "$KCONFIG_FILES" ]; then
+            echo "No Kconfig files found in $CONFIG/kernel_platform. Skipping Kconfig updates."
+          else
+            echo "Found Kconfig files:"
+            echo "$KCONFIG_FILES"
+            set -x
+            find . -name Kconfig -exec sed -i \
+              -e 's/CONFIG_EXT4_INODE_TEST=[ym]/CONFIG_EXT4_INODE_TEST=n/' \
+              -e 's/CONFIG_F_FS_IPC_LOG=[ym]/CONFIG_F_FS_IPC_LOG=n/' \
+              -e 's/CONFIG_HUNG_TASK_ENH=[ym]/CONFIG_HUNG_TASK_ENH=n/' \
+              -e 's/CONFIG_IIO_TEST_FORMAT=[ym]/CONFIG_IIO_TEST_FORMAT=n/' \
+              -e 's/CONFIG_OPLUS_BSP_SIGKILL_DIAGNOSIS=[ym]/CONFIG_OPLUS_BSP_SIGKILL_DIAGNOSIS=n/' \
+              -e 's/CONFIG_OPLUS_LOCK_TORTURE=[ym]/CONFIG_OPLUS_LOCK_TORTURE=n/' \
+              -e 's/CONFIG_SOC_TOPOLOGY_TEST=[ym]/CONFIG_SOC_TOPOLOGY_TEST=n/' \
+              -e 's/CONFIG_SOC_UTILS_TEST=[ym]/CONFIG_SOC_UTILS_TEST=n/' {} \; || true
+            set +x
+          fi
+
       - name: Run sed and perl Commands
         run: |
           echo "Changing to configuration directory: $CONFIG..."
@@ -350,8 +394,8 @@ jobs:
           # Clear Cache
           sudo sh -c 'sync; echo 3 > /proc/sys/vm/drop_caches'
           
-          rm ./kernel_platform/common/android/abi_gki_protected_exports_* || echo "No protected exports!"
-          rm ./kernel_platform/msm-kernel/android/abi_gki_protected_exports_* || echo "No protected exports!"
+          rm ./kernel_platform/common/android/abi_gki_protected_exports_* 2>/dev/null || true
+          rm ./kernel_platform/msm-kernel/android/abi_gki_protected_exports_* 2>/dev/null || true
           
           BUILD_TYPE="gki"
           BAZEL_ARGS=(--jobs=$(nproc --all) --lto=thin)
