@@ -87,27 +87,24 @@ jobs:
           
           echo "CONFIG set to: $CONFIG"
 
-      - name: Clone AnyKernel3 and Other Dependencies
+      - name: Validate Inputs
         run: |
-          echo "Cloning AnyKernel3 and other dependencies..."
-          
-          ANYKERNEL_BRANCH="gki-2.0"
-          SUSFS_BRANCH="gki-${{ inputs.android_version }}-${{ inputs.kernel_version }}"
-          
-          # Debug print the branches
-          echo "Using branch for AnyKernel3: $ANYKERNEL_BRANCH"
-          echo "Using branch for SUSFS: $SUSFS_BRANCH"
-          
-          # Clone repositories using the branch names
-          git clone https://github.com/TheWildJames/AnyKernel3.git -b "$ANYKERNEL_BRANCH"
-          git clone https://gitlab.com/simonpunk/susfs4ksu.git -b "$SUSFS_BRANCH"
-          git clone https://github.com/TheWildJames/kernel_patches.git
+          if [ -z "${{ inputs.branch }}" ] || [ -z "${{ inputs.manifest }}" ]; then
+            echo "Error: branch or manifest input is empty"
+            exit 1
+          fi
+          echo "Branch: ${{ inputs.branch }}"
+          echo "Manifest: ${{ inputs.manifest }}"
+          git ls-remote https://github.com/OnePlusOSS/kernel_manifest.git ${{ inputs.branch }} || { echo "Error: Branch ${{ inputs.branch }} not found"; exit 1; }
 
       - name: Initialize and Sync Kernel Source
         run: |
           echo "Creating folder for configuration: $CONFIG..."
           mkdir -p "$CONFIG"
           cd "$CONFIG"
+          
+          echo "Directory contents before sync:"
+          ls -la
           
           # Initialize and sync kernel source
           echo "Initializing and syncing kernel source..."
@@ -116,7 +113,23 @@ jobs:
           # Sync repo and apply patches
           $REPO --version
           $REPO --trace sync -c --no-clone-bundle --no-tags --optimized-fetch -j$(nproc --all) --fail-fast
-      
+          
+          echo "Directory contents after sync:"
+          ls -la
+
+      - name: Verify Kernel Source
+        run: |
+          echo "Verifying kernel source in $CONFIG..."
+          if [ ! -d "$CONFIG" ]; then
+            echo "Error: $CONFIG directory not found"
+            exit 1
+          fi
+          if [ ! -d "$CONFIG/kernel_platform" ]; then
+            echo "Error: kernel_platform directory not found in $CONFIG"
+            exit 1
+          fi
+          echo "$CONFIG and kernel_platform directories exist."
+
       - name: Add KernelSU Next
         run: |
           echo "Changing to configuration directory: $CONFIG..."
@@ -186,7 +199,7 @@ jobs:
           
           if [ "$(printf '%s\n' "$KERNEL_VERSION" "$MIN_VERSION" | sort -V | head -n1)" = "$KERNEL_VERSION" ]; then
             echo "Patching ptrace!"
-            curl -Ls https://raw.githubusercontent.com/fatalcoder524/kernel_patches_additional/refs/heads/main/ptrace.patch  | patch -p1 -F 3
+            curl -Ls https://raw.githubusercontent.com/fatalcoder524/kernel_patches_additional/refs/heads/main/ptrace.patch | patch -p1 -F 3
           else
             echo "Kernel >= $MIN_VERSION, skipping ptrace patch"
           fi
@@ -198,7 +211,7 @@ jobs:
           echo "Applying KSUN Hooks..."
           cp ../../../kernel_patches/next/scope_min_manual_hooks_v1.4.patch ./manual_hooks.patch
           patch -p1 --fuzz=3 < ./manual_hooks.patch
-          
+
       - name: Apply Hide Stuff Patches
         run: |
           echo "Changing to configuration directory: $CONFIG..."
@@ -206,7 +219,7 @@ jobs:
           # Apply additional patch
           cp ../../../kernel_patches/69_hide_stuff.patch ./
           patch -p1 -F 3 < 69_hide_stuff.patch
-          
+
       - name: Add KernelSU-Next, SUSFS, BBR, Networking, and Optimization Configuration Settings
         run: |
           echo "Changing to configuration directory: $CONFIG..."
@@ -232,7 +245,7 @@ jobs:
           echo "CONFIG_KSU_SUSFS_AUTO_ADD_TRY_UMOUNT_FOR_BIND_MOUNT=y" >> "$CONFIG_FILE"
           echo "CONFIG_KSU_SUSFS_SPOOF_UNAME=y" >> "$CONFIG_FILE"
           echo "CONFIG_KSU_SUSFS_ENABLE_LOG=y" >> "$CONFIG_FILE"
-          echo "CONFIG_KSU_SUSFS_HIDE_KSU_SUSFS_SYMBOLS=y" >> "$CONFIG_FILE"
+          echo "CONFIG_KSU_SUSFS_HIDCONFIG_KSU_SUSFS_SYMBOLS=y" >> "$CONFIG_FILE"
           echo "CONFIG_KSU_SUSFS_SPOOF_CMDLINE_OR_BOOTCONFIG=y" >> "$CONFIG_FILE"
           echo "CONFIG_KSU_SUSFS_OPEN_REDIRECT=y" >> "$CONFIG_FILE"
           echo "CONFIG_KSU_SUSFS_SUS_SU=n" >> "$CONFIG_FILE"
@@ -302,18 +315,23 @@ jobs:
 
       - name: Update Kconfig for Blacklisted Modules
         run: |
-          echo "Changing to configuration directory: $CONFIG..."
-          cd "$CONFIG"
+          echo "Changing to kernel_platform directory: $CONFIG/kernel_platform..."
+          cd "$CONFIG/kernel_platform"
           
-          echo "Searching for Kconfig files in $CONFIG..."
-          KCONFIG_FILES=$(find "$CONFIG" -name Kconfig)
+          if [ ! -d "$CONFIG/kernel_platform" ]; then
+            echo "Error: $CONFIG/kernel_platform directory not found"
+            exit 1
+          fi
+          
+          echo "Searching for Kconfig files in $CONFIG/kernel_platform..."
+          KCONFIG_FILES=$(find . -name Kconfig)
           if [ -z "$KCONFIG_FILES" ]; then
-            echo "No Kconfig files found in $CONFIG. Skipping Kconfig updates."
+            echo "No Kconfig files found in $CONFIG/kernel_platform. Skipping Kconfig updates."
           else
             echo "Found Kconfig files:"
             echo "$KCONFIG_FILES"
             set -x
-            find "$CONFIG" -name Kconfig -exec sed -i \
+            find . -name Kconfig -exec sed -i \
               -e 's/CONFIG_EXT4_INODE_TEST=[ym]/CONFIG_EXT4_INODE_TEST=n/' \
               -e 's/CONFIG_F_FS_IPC_LOG=[ym]/CONFIG_F_FS_IPC_LOG=n/' \
               -e 's/CONFIG_HUNG_TASK_ENH=[ym]/CONFIG_HUNG_TASK_ENH=n/' \
