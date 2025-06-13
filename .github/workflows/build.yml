@@ -296,6 +296,10 @@ jobs:
           # Modify build config
           sed -i 's/check_defconfig//' ./common/build.config.gki
           
+          # Configure Git user identity
+          git config user.name "GitHub Actions"
+          git config user.email "actions@github.com"
+          
           # Commit changes
           cd common
           git add -A && git commit -a -m "Add SUSFS, wakelock blocker, and optimization configuration" || echo "No changes to commit"
