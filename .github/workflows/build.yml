@@ -87,24 +87,27 @@ jobs:
           
           echo "CONFIG set to: $CONFIG"
 
-      - name: Validate Inputs
+      - name: Clone AnyKernel3 and Other Dependencies
         run: |
-          if [ -z "${{ inputs.branch }}" ] || [ -z "${{ inputs.manifest }}" ]; then
-            echo "Error: branch or manifest input is empty"
-            exit 1
-          fi
-          echo "Branch: ${{ inputs.branch }}"
-          echo "Manifest: ${{ inputs.manifest }}"
-          git ls-remote https://github.com/OnePlusOSS/kernel_manifest.git ${{ inputs.branch }} || { echo "Error: Branch ${{ inputs.branch }} not found"; exit 1; }
+          echo "Cloning AnyKernel3 and other dependencies..."
+          
+          ANYKERNEL_BRANCH="gki-2.0"
+          SUSFS_BRANCH="gki-${{ inputs.android_version }}-${{ inputs.kernel_version }}"
+          
+          # Debug print the branches
+          echo "Using branch for AnyKernel3: $ANYKERNEL_BRANCH"
+          echo "Using branch for SUSFS: $SUSFS_BRANCH"
+          
+          # Clone repositories using the branch names
+          git clone https://github.com/TheWildJames/AnyKernel3.git -b "$ANYKERNEL_BRANCH"
+          git clone https://gitlab.com/simonpunk/susfs4ksu.git -b "$SUSFS_BRANCH"
+          git clone https://github.com/TheWildJames/kernel_patches.git
 
       - name: Initialize and Sync Kernel Source
         run: |
           echo "Creating folder for configuration: $CONFIG..."
           mkdir -p "$CONFIG"
           cd "$CONFIG"
-          
-          echo "Directory contents before sync:"
-          ls -la
           
           # Initialize and sync kernel source
           echo "Initializing and syncing kernel source..."
@@ -113,23 +116,7 @@ jobs:
           # Sync repo and apply patches
           $REPO --version
           $REPO --trace sync -c --no-clone-bundle --no-tags --optimized-fetch -j$(nproc --all) --fail-fast
-          
-          echo "Directory contents after sync:"
-          ls -la
-
-      - name: Verify Kernel Source
-        run: |
-          echo "Verifying kernel source in $CONFIG..."
-          if [ ! -d "$CONFIG" ]; then
-            echo "Error: $CONFIG directory not found"
-            exit 1
-          fi
-          if [ ! -d "$CONFIG/kernel_platform" ]; then
-            echo "Error: kernel_platform directory not found in $CONFIG"
-            exit 1
-          fi
-          echo "$CONFIG and kernel_platform directories exist."
-
+      
       - name: Add KernelSU Next
         run: |
           echo "Changing to configuration directory: $CONFIG..."
@@ -199,7 +186,7 @@ jobs:
           
           if [ "$(printf '%s\n' "$KERNEL_VERSION" "$MIN_VERSION" | sort -V | head -n1)" = "$KERNEL_VERSION" ]; then
             echo "Patching ptrace!"
-            curl -Ls https://raw.githubusercontent.com/fatalcoder524/kernel_patches_additional/refs/heads/main/ptrace.patch | patch -p1 -F 3
+            curl -Ls https://raw.githubusercontent.com/fatalcoder524/kernel_patches_additional/refs/heads/main/ptrace.patch  | patch -p1 -F 3
           else
             echo "Kernel >= $MIN_VERSION, skipping ptrace patch"
           fi
@@ -211,7 +198,7 @@ jobs:
           echo "Applying KSUN Hooks..."
           cp ../../../kernel_patches/next/scope_min_manual_hooks_v1.4.patch ./manual_hooks.patch
           patch -p1 --fuzz=3 < ./manual_hooks.patch
-
+          
       - name: Apply Hide Stuff Patches
         run: |
           echo "Changing to configuration directory: $CONFIG..."
