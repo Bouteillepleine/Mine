@@ -188,23 +188,38 @@ jobs:
             echo "Error: repo sync failed"
             exit 1
           }
-          if [ "${{ github.event.inputs.FEIL }}" = "oneplus_13t" ]; then
-            git clone --depth 5 https://github.com/reigadegr/android_kernel_common_oneplus_sm8750 -b oneplus/sm8750_v_15.0.2_oneplus_13t common
-            cd common/
-            rm -rf .git
-            cd ..
+          # Ensure common/ directory exists
+          if [ ! -d common ]; then
+            if [ "${{ github.event.inputs.FEIL }}" = "oneplus_13t" ]; then
+              git clone --depth 5 https://github.com/reigadegr/android_kernel_common_oneplus_sm8750 -b oneplus/sm8750_v_15.0.2_oneplus_13t common
+              cd common/
+              rm -rf .git
+              cd ..
+            elif [ "${{ github.event.inputs.FEIL }}" = "oneplus_13" ]; then
+              git clone --depth 5 https://github.com/reigadegr/android_kernel_common_oneplus_sm8750 -b oneplus/sm8750_v_15.0.0_oneplus_13 common
+              cd common/
+              rm -rf .git
+              cd ..
+            elif [ "${{ github.event.inputs.FEIL }}" = "oneplus_13r" ]; then
+              # Placeholder for oneplus_13r: create common/ or clone appropriate repo
+              mkdir -p common
+              # Optionally clone a repo for oneplus_13r if known, e.g.:
+              # git clone --depth 5 https://github.com/reigadegr/android_kernel_common_oneplus_sm8750 -b oneplus/sm8750_v_X.Y.Z_oneplus_13r common
+              # cd common/
+              # rm -rf .git
+              # cd ..
+            fi
           fi
-          
-          if [ "${{ github.event.inputs.FEIL }}" = "oneplus_13" ]; then
-            git clone --depth 5 https://github.com/reigadegr/android_kernel_common_oneplus_sm8750 -b oneplus/sm8750_v_15.0.0_oneplus_13 common
-            cd common/
-            rm -rf .git
-            cd ..
+          # Copy patches only if common/ exists
+          if [ -d common ]; then
+            cp -r ./*patch common/ || {
+              echo "Error: Failed to copy patches to common/"
+              exit 1
+            }
+          else
+            echo "Warning: common/ directory not found, skipping patch copy"
           fi
-          cp -r ./*patch common/
-          
           cd ..
-          
           if [ -e kernel_platform/common/BUILD.bazel ]; then
             sed -i '/^[[:space:]]*"protected_exports_list"[[:space:]]*:[[:space:]]*"android\/abi_gki_protected_exports_aarch64",$/d' kernel_platform/common/BUILD.bazel
           fi
@@ -213,7 +228,6 @@ jobs:
           fi
           rm kernel_platform/common/android/abi_gki_protected_exports_* 2>/dev/null || echo "No protected exports in kernel_platform/common/android!"
           rm kernel_platform/msm-kernel/android/abi_gki_protected_exports_* 2>/dev/null || echo "No protected exports in kernel_platform/msm-kernel/android!"
-          
           CONFIG_FILE=./kernel_platform/common/arch/arm64/configs/gki_defconfig
           if [ -f "$CONFIG_FILE" ]; then
             echo "CONFIG_SCHED_WALT=y" >> "$CONFIG_FILE"
