@@ -179,8 +179,7 @@ jobs:
         run: |
           mkdir kernel_workspace && cd kernel_workspace
           mkdir kernel_platform && cd kernel_platform
-          wget https://github.com/reigadegr/Action-Build/raw/gki_official/fengchi.patch
-          cat black_module.patch
+          wget https://github.com/reigadegr/Action-Build/raw/gki_official/fengchi.patch          
           repo init -u https://github.com/OnePlusOSS/kernel_manifest.git -b refs/heads/oneplus/${{ github.event.inputs.CPU }} -m ${{ github.event.inputs.FEIL }}.xml --depth=1
           repo init -u https://android.googlesource.com/kernel/manifest.git -b common-${{ github.event.inputs.ANDROID_VERSION }}-${{ github.event.inputs.KERNEL_VERSION }} -m default.xml --depth=1                  
           repo sync -c -j$(nproc --all) --no-tags --no-clone-bundle --force-sync
