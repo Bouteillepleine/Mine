@@ -51,7 +51,7 @@ jobs:
             esl-erlang firefox gfortran-8 gfortran-9 google-chrome-stable \
             google-cloud-sdk imagemagick \
             libmagickcore-dev libmagickwand-dev libmagic-dev ant ant-optional kubectl \
-            mercurial apt-transport-https mono27 mono-complete libmysqlclient \
+            mercurial apt-transport-https mono-complete libmysqlclient \
             unixodbc-dev yarn chrpath libssl-dev libxft-dev \
             libfreetype6 libfreetype6-dev libfontconfig1 libfontconfig1-dev \
             snmp pollinate libpq-dev postgresql-client powershell ruby-full \
@@ -116,16 +116,7 @@ jobs:
           # Sync repo and apply patches
           $REPO --version
           $REPO --trace sync -c --no-clone-bundle --no-tags --optimized-fetch -j$(nproc --all) --fail-fast
-
-      - name: Verify Kernel Source
-        run: |
-          echo "Verifying kernel source in $CONFIG..."
-          if [ ! -d "$CONFIG/kernel_platform" ]; then
-            echo "Error: kernel_platform directory not found in $CONFIG"
-            exit 1
-          fi
-          echo "kernel_platform directory exists."
-
+      
       - name: Add KernelSU Next
         run: |
           echo "Changing to configuration directory: $CONFIG..."
@@ -136,7 +127,7 @@ jobs:
           if [ "${{ inputs.ksun_branch }}" == "stable" ]; then
             curl -LSs "https://raw.githubusercontent.com/KernelSU-Next/KernelSU-Next/next/kernel/setup.sh" | bash -
           else
-            curl -LSs "httpskis://raw.githubusercontent.com/KernelSU-Next/KernelSU-Next/next/kernel/setup.sh" | bash -s ${{ inputs.ksun_branch }}
+            curl -LSs "https://raw.githubusercontent.com/KernelSU-Next/KernelSU-Next/next/kernel/setup.sh" | bash -s ${{ inputs.ksun_branch }}
           fi
           
           git submodule update --init --recursive
@@ -195,7 +186,7 @@ jobs:
           
           if [ "$(printf '%s\n' "$KERNEL_VERSION" "$MIN_VERSION" | sort -V | head -n1)" = "$KERNEL_VERSION" ]; then
             echo "Patching ptrace!"
-            curl -Ls https://raw.githubusercontent.com/fatalcoder524/kernel_patches_additional/refs/heads/main/ptrace.patch | patch -p1 -F 3
+            curl -Ls https://raw.githubusercontent.com/fatalcoder524/kernel_patches_additional/refs/heads/main/ptrace.patch  | patch -p1 -F 3
           else
             echo "Kernel >= $MIN_VERSION, skipping ptrace patch"
           fi
@@ -207,7 +198,7 @@ jobs:
           echo "Applying KSUN Hooks..."
           cp ../../../kernel_patches/next/scope_min_manual_hooks_v1.4.patch ./manual_hooks.patch
           patch -p1 --fuzz=3 < ./manual_hooks.patch
-
+          
       - name: Apply Hide Stuff Patches
         run: |
           echo "Changing to configuration directory: $CONFIG..."
@@ -215,7 +206,7 @@ jobs:
           # Apply additional patch
           cp ../../../kernel_patches/69_hide_stuff.patch ./
           patch -p1 -F 3 < 69_hide_stuff.patch
-
+          
       - name: Add KernelSU-Next, SUSFS, BBR, Networking, and Optimization Configuration Settings
         run: |
           echo "Changing to configuration directory: $CONFIG..."
