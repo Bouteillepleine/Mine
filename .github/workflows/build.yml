@@ -138,12 +138,7 @@ jobs:
             curl -LSs "https://raw.githubusercontent.com/KernelSU-Next/KernelSU-Next/next/kernel/setup.sh" | bash -s ${{ inputs.ksun_branch }}
           fi
           
-          if [ -f ./scripts/submodule_update.sh ]; then
-            bash ./scripts/submodule_update.sh || echo "Submodule update script failed"
-          else
-            echo "submodule_update.sh not found, attempting manual submodule update..."
-            git submodule update --init --recursive || echo "Manual submodule update failed"
-          fi
+          git submodule update --init --recursive
 
       - name: Apply SUSFS Patches
         run: |
@@ -162,7 +157,7 @@ jobs:
           if [ "${{ inputs.ksun_branch }}" == "stable" ] || [ "${{ inputs.ksun_branch }}" == "next" ]; then
             echo "Applying next SUSFS patches..."
             cp ../../../kernel_patches/next/ksun_susfs_v1.5.7_patch_12647+.patch ./ksun_susfs_latest.patch
-            patch -p1 --forward < ksun_susfs_latest.patch || echo "Failed to apply ksun_susfs_latest.patch, may be already applied"
+            patch -p1 --forward < ksun_susfs_latest.patch || true
           fi
           
           # Determine base version based on branch
@@ -192,14 +187,20 @@ jobs:
                   echo "Line already present. Skipping insert."
               fi
           fi
-          patch -p1 < 50_add_susfs_in_gki-${{ inputs.android_version }}-${{ inputs.kernel_version }}.patch || echo "Failed to apply SUSFS patch, may be already applied"
+          patch -p1 < 50_add_susfs_in_gki-${{ inputs.android_version }}-${{ inputs.kernel_version }}.patch || true
+          
+          if ! grep -qxF '#define CMD_SUSFS_HIDE_SUS_MNTS_FOR_ALL_PROCS 0x55561' ./include/linux/susfs_def.h; then
+              curl -Ls https://raw.githubusercontent.com/fatalcoder524/kernel_patches_additional/refs/heads/main/hide_sus_mnts_for_all_procs.patch  | patch -p1 -F 3
+          else
+              echo "Line already present. Skipping SUSFS_HIDE_SUS_MNTS_FOR_ALL_PROCS Patch."
+          fi
           
           KERNEL_VERSION="${{ inputs.kernel_version }}"
           MIN_VERSION="5.16"
           
           if [ "$(printf '%s\n' "$KERNEL_VERSION" "$MIN_VERSION" | sort -V | head -n1)" = "$KERNEL_VERSION" ]; then
             echo "Patching ptrace!"
-            curl -Ls https://raw.githubusercontent.com/fatalcoder524/kernel_patches_additional/refs/heads/main/ptrace.patch | patch -p1 -F 3 || echo "Failed to apply ptrace patch"
+            curl -Ls https://raw.githubusercontent.com/fatalcoder524/kernel_patches_additional/refs/heads/main/ptrace.patch  | patch -p1 -F 3
           else
             echo "Kernel >= $MIN_VERSION, skipping ptrace patch"
           fi
@@ -211,7 +212,7 @@ jobs:
           echo "Applying KSUN Hooks..."
           cp ../../../kernel_patches/next/scope_min_manual_hooks_v1.4.patch ./manual_hooks.patch
           patch -p1 --fuzz=3 < ./manual_hooks.patch
-
+          
       - name: Apply Hide Stuff Patches
         run: |
           echo "Changing to configuration directory: $CONFIG..."
