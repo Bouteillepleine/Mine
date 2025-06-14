@@ -442,7 +442,7 @@ jobs:
               echo "Patching check_declared_output_list to exclude disabled modules..."
               cp "$CHECK_SCRIPT" "${CHECK_SCRIPT}.orig"
               # Create a temporary file with disabled modules
-              cat << 'MODULE_EOF' > disabled_modules.txt
+              cat << MODULE_EOF > disabled_modules.txt
               drivers/base/regmap/regmap-kunit.ko
               drivers/base/regmap/regmap-ram.ko
               drivers/base/regmap/regmap-raw-ram.ko
@@ -456,10 +456,6 @@ jobs:
               sound/soc/soc-utils-test.ko
               drivers/clk/clk-gate_test.ko
               drivers/clk/clk_test.ko
-              kernel/time/time_test.ko
-              lib/kunit/kunit-example-test.ko
-              lib/kunit/kunit-test.ko
-              net/core/dev_addr_lists_test.ko
               MODULE_EOF
               # Modify the script to filter out disabled modules
               sed -i '/--declared / {
