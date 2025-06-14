@@ -258,25 +258,6 @@ jobs:
       - name: Disable OnePlus Kernel Module
         run: |
           cd kernel_workspace/kernel_platform
-          # Select defconfig based on FEIL
-          case "${{ github.event.inputs.FEIL }}" in
-            "oneplus_13r")
-              CONFIG_FILE=./common/arch/arm64/configs/vendor_oneplus_13r_defconfig
-              ;;
-            "oneplus_13t")
-              CONFIG_FILE=./common/arch/arm64/configs/vendor_oneplus_13t_defconfig
-              ;;
-            "oneplus_13")
-              CONFIG_FILE=./common/arch/arm64/configs/vendor_oneplus_13_defconfig
-              ;;
-            *)
-              CONFIG_FILE=./common/arch/arm64/configs/gki_defconfig
-              ;;
-          esac
-          if [ ! -f "$CONFIG_FILE" ]; then
-            echo "Error: $CONFIG_FILE not found"
-            exit 1
-          fi
           sed -i 's/CONFIG_REGMAP_KUNIT=m/CONFIG_REGMAP_KUNIT=n/g' "$CONFIG_FILE"
           sed -i 's/CONFIG_INPUT_KUNIT_TEST=m/CONFIG_INPUT_KUNIT_TEST=n/g' "$CONFIG_FILE"
           sed -i 's/CONFIG_SND_SOC_TOPOLOGY_KUNIT_TEST=m/CONFIG_SND_SOC_TOPOLOGY_KUNIT_TEST=n/g' "$CONFIG_FILE"
@@ -288,31 +269,6 @@ jobs:
           sed -i 's/CONFIG_IIO_FORMAT_KUNIT_TEST=m/CONFIG_IIO_FORMAT_KUNIT_TEST=n/g' "$CONFIG_FILE"
           sed -i 's/CONFIG_EXT4_KUNIT_TESTS=m/CONFIG_EXT4_KUNIT_TESTS=n/g' "$CONFIG_FILE"
           sed -i 's/CONFIG_FAT_KUNIT_TEST=m/CONFIG_FAT_KUNIT_TEST=n/g' "$CONFIG_FILE"
-
-      - name: Inline WALT scheduler
-        run: |
-          cd kernel_workspace/kernel_platform
-          # Select defconfig based on FEIL
-          case "${{ github.event.inputs.FEIL }}" in
-            "oneplus_13r")
-              CONFIG_FILE=./common/arch/arm64/configs/vendor_oneplus_13r_defconfig
-              ;;
-            "oneplus_13t")
-              CONFIG_FILE=./common/arch/arm64/configs/vendor_oneplus_13t_defconfig
-              ;;
-            "oneplus_13")
-              CONFIG_FILE=./common/arch/arm64/configs/vendor_oneplus_13_defconfig
-              ;;
-            *)
-              CONFIG_FILE=./common/arch/arm64/configs/gki_defconfig
-              ;;
-          esac
-          if [ ! -f "$CONFIG_FILE" ]; then
-            echo "Error: $CONFIG_FILE not found"
-            exit 1
-          fi
-          echo "CONFIG_SCHED_WALT=y" >> "$CONFIG_FILE"
-          echo "CONFIG_SCHED_WALT_DEBUG=y" >> "$CONFIG_FILE"
 
       - name: Add fengchi
         run: |
@@ -492,6 +448,8 @@ jobs:
           echo "CONFIG_DEBUG_KERNEL=n" >> "$CONFIG_FILE"
           echo "CONFIG_DYNAMIC_DEBUG=n" >> "$CONFIG_FILE"
           echo "CONFIG_DEBUG_INFO=n" >> "$CONFIG_FILE"
+          echo "CONFIG_SCHED_WALT=y" >> "$CONFIG_FILE"
+          echo "CONFIG_SCHED_WALT_DEBUG=y" >> "$CONFIG_FILE"
           sed -i 's/CONFIG_PRINTK_TIME=y/CONFIG_PRINTK_TIME=n/' "$CONFIG_FILE"
           sed -i 's/CONFIG_PRINTK_CALLER=y/CONFIG_PRINTK_CALLER=n/' "$CONFIG_FILE"
 
