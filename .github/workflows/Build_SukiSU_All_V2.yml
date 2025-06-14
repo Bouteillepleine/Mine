@@ -1,4 +1,5 @@
-name: Build OnePlus_SukiSU Ultra All V2
+name: Build OnePlus SukiSU Ultra All
+
 on:
   workflow_dispatch:
     inputs:
@@ -102,6 +103,7 @@ on:
         description: "Enable Fast Build, Only Generate Image?"
         required: true
         default: true
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -125,25 +127,28 @@ jobs:
 
       - name: Configure Git
         run: |
-          git config --global user.name "0+builds"
-          git config --global user.email "0+builds@yahoo.com"
+          git config --global user.name "Numbersf"
+          git config --global user.email "263623064@qq.com"
+
       - name: Install dependencies
         run: |
           sudo apt update
           sudo apt install -y python3 git curl clang cmake make llvm wget
           sudo apt-get install curl bison flex make binutils dwarves git lld pahole zip perl make gcc python3 python-is-python3 bc libssl-dev libelf-dev clang wget cmake ccache -y
-          
-      - name: LLVM latest
+
+      - name: Install LLVM
         run: |
           wget https://apt.llvm.org/llvm.sh
           sudo chmod +x llvm.sh
           sudo ./llvm.sh 20 all
+
       - name: Setup rust toolchains
         run: |
           rustup default nightly
           rustup target add aarch64-linux-android armv7-linux-androideabi x86_64-linux-android i686-linux-android
           rustup component add rust-src llvm-tools-preview
           rustup update
+
       - name: Restore ccache
         uses: actions/cache@v3
         with:
@@ -151,8 +156,8 @@ jobs:
           key: ccache-${{ runner.os }}-${{ github.ref }}
           restore-keys: |
             ccache-${{ runner.os }}-
-                        
-      - name: Show selected inputs debug
+
+      - name: Show selected inputs
         run: |
           echo "Selected CPU: ${{ github.event.inputs.CPU }}"
           echo "Selected FEIL: ${{ github.event.inputs.FEIL }}"
@@ -164,23 +169,23 @@ jobs:
           echo "Selected VFS: ${{ github.event.inputs.VFS }}"
           echo "Selected ZRAM: ${{ github.event.inputs.ZRAM }}"
           echo "Selected FAST: ${{ github.event.inputs.FAST }}"
+
       - name: Install repo tool
         run: |
           curl https://storage.googleapis.com/git-repo-downloads/repo > ~/repo
           chmod a+x ~/repo
           sudo mv ~/repo /usr/local/bin/repo
+
       - name: Initialize repo and sync
         run: |
-          if [ ! -d kernel_workspace ]; then
-            mkdir kernel_workspace
-          fi
-          cd kernel_workspace
-          if [ ! -d kernel_platform ]; then
-            mkdir kernel_platform
-          fi
-          cd kernel_platform
+          mkdir kernel_workspace && cd kernel_workspace
+          mkdir kernel_platform && cd kernel_platform
           wget https://github.com/reigadegr/Action-Build/raw/gki_official/fengchi.patch || {
             echo "Error: Failed to download fengchi.patch"
+            exit 1
+          }
+          wget https://github.com/reigadegr/Action-Build/raw/suki/black_module.patch || {
+            echo "Error: Failed to download black_module.patch"
             exit 1
           }
           repo init -u https://github.com/OnePlusOSS/kernel_manifest.git -b refs/heads/oneplus/${{ github.event.inputs.CPU }} -m ${{ github.event.inputs.FEIL }}.xml --depth=1
@@ -200,24 +205,19 @@ jobs:
               cd common/
               rm -rf .git
               cd ..
-            elif [ "${{ github.event.inputs.FEIL }}" = "oneplus_13r" ]; then
-              # Placeholder for oneplus_13r: create common/ or clone appropriate repo
+            else
               mkdir -p common
-              # Optionally clone a repo for oneplus_13r if known, e.g.:
-              # git clone --depth 5 https://github.com/reigadegr/android_kernel_common_oneplus_sm8750 -b oneplus/sm8750_v_X.Y.Z_oneplus_13r common
-              # cd common/
-              # rm -rf .git
-              # cd ..
             fi
           fi
-          # Copy patches only if common/ exists
+          # Copy patches to common/
           if [ -d common ]; then
             cp -r ./*patch common/ || {
               echo "Error: Failed to copy patches to common/"
               exit 1
             }
           else
-            echo "Warning: common/ directory not found, skipping patch copy"
+            echo "Error: common/ directory not found"
+            exit 1
           fi
           cd ..
           if [ -e kernel_platform/common/BUILD.bazel ]; then
@@ -228,23 +228,100 @@ jobs:
           fi
           rm kernel_platform/common/android/abi_gki_protected_exports_* 2>/dev/null || echo "No protected exports in kernel_platform/common/android!"
           rm kernel_platform/msm-kernel/android/abi_gki_protected_exports_* 2>/dev/null || echo "No protected exports in kernel_platform/msm-kernel/android!"
-          CONFIG_FILE=./kernel_platform/common/arch/arm64/configs/gki_defconfig
-          if [ -f "$CONFIG_FILE" ]; then
-            echo "CONFIG_SCHED_WALT=y" >> "$CONFIG_FILE"
-            echo "CONFIG_SCHED_WALT_DEBUG=y" >> "$CONFIG_FILE"
-          else
+
+      - name: Debug Directory Structure
+        run: |
+          echo "Current working directory: $(pwd)"
+          echo "Listing contents of kernel_workspace/kernel_platform:"
+          ls -la kernel_workspace/kernel_platform || echo "kernel_workspace/kernel_platform directory not found"
+          echo "Listing contents of kernel_workspace/kernel_platform/common if it exists:"
+          ls -la kernel_workspace/kernel_platform/common || echo "kernel_workspace/kernel_platform/common directory not found"
+          echo "Listing contents of kernel_workspace/kernel_platform/common/arch/arm64/configs if it exists:"
+          ls -la kernel_workspace/kernel_platform/common/arch/arm64/configs || echo "kernel_workspace/kernel_platform/common/arch/arm64/configs directory not found"
+          echo "Listing contents of kernel_workspace/kernel_platform/msm-kernel/arch/arm64/configs if it exists:"
+          ls -la kernel_workspace/kernel_platform/msm-kernel/arch/arm64/configs || echo "kernel_workspace/kernel_platform/msm-kernel/arch/arm64/configs directory not found"
+          echo "Listing all defconfig files:"
+          find kernel_workspace/kernel_platform -name "*defconfig"
+
+      - name: Remove OnePlus Kernel Module
+        run: |
+          cd kernel_workspace/kernel_platform/common
+          for i in "kernel/sched/slim_sysctl.c" "kernel/sched/slim.h"; do
+            if [ -f "$i" ]; then
+              rm -f "$i"
+            fi
+          done
+          git apply black_module.patch
+          sed -i 's/check_defconfig//' ./build.config.gki
+          echo "Remove kernel module completed"
+
+      - name: Disable OnePlus Kernel Module
+        run: |
+          cd kernel_workspace/kernel_platform
+          # Select defconfig based on FEIL
+          case "${{ github.event.inputs.FEIL }}" in
+            "oneplus_13r")
+              CONFIG_FILE=./common/arch/arm64/configs/vendor_oneplus_13r_defconfig
+              ;;
+            "oneplus_13t")
+              CONFIG_FILE=./common/arch/arm64/configs/vendor_oneplus_13t_defconfig
+              ;;
+            "oneplus_13")
+              CONFIG_FILE=./common/arch/arm64/configs/vendor_oneplus_13_defconfig
+              ;;
+            *)
+              CONFIG_FILE=./common/arch/arm64/configs/gki_defconfig
+              ;;
+          esac
+          if [ ! -f "$CONFIG_FILE" ]; then
             echo "Error: $CONFIG_FILE not found"
             exit 1
           fi
-          
+          sed -i 's/CONFIG_REGMAP_KUNIT=m/CONFIG_REGMAP_KUNIT=n/g' "$CONFIG_FILE"
+          sed -i 's/CONFIG_INPUT_KUNIT_TEST=m/CONFIG_INPUT_KUNIT_TEST=n/g' "$CONFIG_FILE"
+          sed -i 's/CONFIG_SND_SOC_TOPOLOGY_KUNIT_TEST=m/CONFIG_SND_SOC_TOPOLOGY_KUNIT_TEST=n/g' "$CONFIG_FILE"
+          sed -i 's/CONFIG_SND_SOC_UTILS_KUNIT_TEST=m/CONFIG_SND_SOC_UTILS_KUNIT_TEST=n/g' "$CONFIG_FILE"
+          sed -i 's/CONFIG_HID_KUNIT_TEST=m/CONFIG_HID_KUNIT_TEST=n/g' "$CONFIG_FILE"
+          sed -i 's/CONFIG_RTC_LIB_KUNIT_TEST=m/CONFIG_RTC_LIB_KUNIT_TEST=n/g' "$CONFIG_FILE"
+          sed -i 's/CONFIG_CLK_KUNIT_TEST=m/CONFIG_CLK_KUNIT_TEST=n/g' "$CONFIG_FILE"
+          sed -i 's/CONFIG_CLK_GATE_KUNIT_TEST=m/CONFIG_CLK_GATE_KUNIT_TEST=n/g' "$CONFIG_FILE"
+          sed -i 's/CONFIG_IIO_FORMAT_KUNIT_TEST=m/CONFIG_IIO_FORMAT_KUNIT_TEST=n/g' "$CONFIG_FILE"
+          sed -i 's/CONFIG_EXT4_KUNIT_TESTS=m/CONFIG_EXT4_KUNIT_TESTS=n/g' "$CONFIG_FILE"
+          sed -i 's/CONFIG_FAT_KUNIT_TEST=m/CONFIG_FAT_KUNIT_TEST=n/g' "$CONFIG_FILE"
+
+      - name: Inline WALT scheduler
+        run: |
+          cd kernel_workspace/kernel_platform
+          # Select defconfig based on FEIL
+          case "${{ github.event.inputs.FEIL }}" in
+            "oneplus_13r")
+              CONFIG_FILE=./common/arch/arm64/configs/vendor_oneplus_13r_defconfig
+              ;;
+            "oneplus_13t")
+              CONFIG_FILE=./common/arch/arm64/configs/vendor_oneplus_13t_defconfig
+              ;;
+            "oneplus_13")
+              CONFIG_FILE=./common/arch/arm64/configs/vendor_oneplus_13_defconfig
+              ;;
+            *)
+              CONFIG_FILE=./common/arch/arm64/configs/gki_defconfig
+              ;;
+          esac
+          if [ ! -f "$CONFIG_FILE" ]; then
+            echo "Error: $CONFIG_FILE not found"
+            exit 1
+          fi
+          echo "CONFIG_SCHED_WALT=y" >> "$CONFIG_FILE"
+          echo "CONFIG_SCHED_WALT_DEBUG=y" >> "$CONFIG_FILE"
+
       - name: Add fengchi
         run: |
+          cd kernel_workspace/kernel_platform/common
           if [ "${{ github.event.inputs.KERNEL_VERSION }}" = "6.6" ]; then
-            cd kernel_workspace/kernel_platform/common
             git apply fengchi.patch
-            echo "Fengchi added successfully"
+            echo "Add fengchi successfully"
           fi
-          
+
       - name: Force remove -dirty suffix
         run: |
           cd kernel_workspace/kernel_platform
@@ -252,15 +329,19 @@ jobs:
           sed -i 's/ -dirty//g' msm-kernel/scripts/setlocalversion || true
           sed -i 's/ -dirty//g' external/dtc/scripts/setlocalversion || true
           sed -i '$i res=$(echo "$res" | sed '\''s/-dirty//g'\'')' common/scripts/setlocalversion
+
       - name: Modify setlocalversion suffix if SUFFIX is set
         if: ${{ github.event.inputs.SUFFIX != '' }}
         run: |
           cd kernel_workspace
           for path in \
-            kernel_platform/common/scripts/setlocalversion; do
+            kernel_platform/common/scripts/setlocalversion \
+            kernel_platform/msm-kernel/scripts/setlocalversion \
+            kernel_platform/external/dtc/scripts/setlocalversion; do
               sed -i '/^res=/a res=$(echo "$res" | sed -E '\''s/-[0-9]+-o-g[0-9a-f]{7,}//'\'')' "$path"
               sed -i "\$s|echo \"\\\$res\"|echo \"\$res-${{ github.event.inputs.SUFFIX }}\"|" "$path"
           done
+
       - name: Generate random kernel suffix if SUFFIX is empty
         if: ${{ github.event.inputs.SUFFIX == '' }}
         run: |
@@ -272,21 +353,21 @@ jobs:
             kernel_platform/common/scripts/setlocalversion \
             kernel_platform/msm-kernel/scripts/setlocalversion \
             kernel_platform/external/dtc/scripts/setlocalversion; do
-              sed -i '/^res=/a res=$(echo "$res" | sed -E '\''s/-[0-9]+-o-g[0-9a-f]{7,}//g'\'')' "$path" || true
+              sed -i '/^res=/a res=$(echo "$res" | sed -E '\''s/-[0-9]+-o-g[0-9a-fA-F]{7,}//g'\'')' "$path" || true
               sed -i "\$s|echo \"\\\$res\"|echo \"\$res-$RANDOM_SUFFIX\"|" "$path" || true
           done
-          
-      - name: Convert HMBIRD_OGKI to HMBIRD_GKI
+
+      - name: Convert HMBIRD OGKI to GKI
         run: |
           if [ "${{ github.event.inputs.KERNEL_VERSION }}" = "6.6" ]; then
             cd kernel_workspace/kernel_platform/common
             sed -i '1iobj-y += hmbird_patch.o' drivers/Makefile
-            wget https://github.com/reigadegr/Action-Build/raw/main/patchs/hmbird_patch.patch
+            wget https://github.com/Numbersf/Action-Build/raw/main/patchs/hmbird_patch.patch
             echo "Applying OGKI to GKI patch"
             patch -p1 -F 3 < hmbird_patch.patch
             echo "OGKI to GKI patch completed"
           fi
-                              
+
       - name: Add KernelSU-SukiSU Ultra
         run: |
           cd kernel_workspace/kernel_platform
@@ -296,11 +377,13 @@ jobs:
           echo "KSUVER=$KSU_VERSION" >> $GITHUB_ENV
           export KSU_VERSION=$KSU_VERSION
           sed -i "s/DKSU_VERSION=.*/DKSU_VERSION=${KSU_VERSION}/" kernel/Makefile || true
-      - name: Apply Patches SukiSU Ultra
+
+      - name: Apply SukiSU Ultra Patches
         run: |
-          cd kernel_workspace          
+          cd kernel_workspace
           git clone https://github.com/SukiSU-Ultra/SukiSU_patch.git
           cd kernel_platform
+
       - name: Apply Hide Stuff Patches
         run: |
           cd kernel_workspace/kernel_platform/common
@@ -308,7 +391,8 @@ jobs:
           echo "Applying hide stuff patch"
           patch -p1 -F 3 < 69_hide_stuff.patch
           echo "Hide stuff patch completed"
-      - name: Apply VFS
+
+      - name: Apply VFS Patches
         run: |
           cd kernel_workspace/kernel_platform/common
           if [ "${{ github.event.inputs.VFS }}" = "true" ]; then
@@ -317,14 +401,45 @@ jobs:
             patch -p1 -F 3 < syscall_hooks.patch
             echo "VFS patch completed"
           fi
+
+      - name: Apply LZ4KD Patches
+        run: |
+          cd kernel_workspace/kernel_platform/common
+          if [ "${{ github.event.inputs.ZRAM }}" = "true" ]; then
+            cp ../../SukiSU_patch/other/zram/zram_patch/${{ github.event.inputs.KERNEL_VERSION }}/lz4kd.patch ./
+            echo "Applying lz4kd patch"
+            patch -p1 -F 3 < lz4kd.patch || true
+            echo "lz4kd patch completed"
+            cp ../../SukiSU_patch/other/zram/zram_patch/${{ github.event.inputs.KERNEL_VERSION }}/lz4k_oplus.patch ./
+            echo "Applying lz4k_oplus patch"
+            patch -p1 -F 3 < lz4k_oplus.patch || true
+            echo "lz4k_oplus patch completed"
+          fi
+
       - name: Add KSU Configuration
         run: |
           cd kernel_workspace/kernel_platform
-          CONFIG_FILE=./common/arch/arm64/configs/gki_defconfig
+          # Select defconfig based on FEIL
+          case "${{ github.event.inputs.FEIL }}" in
+            "oneplus_13r")
+              CONFIG_FILE=./common/arch/arm64/configs/vendor_oneplus_13r_defconfig
+              ;;
+            "oneplus_13t")
+              CONFIG_FILE=./common/arch/arm64/configs/vendor_oneplus_13t_defconfig
+              ;;
+            "oneplus_13")
+              CONFIG_FILE=./common/arch/arm64/configs/vendor_oneplus_13_defconfig
+              ;;
+            *)
+              CONFIG_FILE=./common/arch/arm64/configs/gki_defconfig
+              ;;
+          esac
+          if [ ! -f "$CONFIG_FILE" ]; then
+            echo "Error: $CONFIG_FILE not found"
+            exit 1
+          fi
           echo "CONFIG_KSU=y" >> "$CONFIG_FILE"
           echo "CONFIG_KSU_KPROBES_HOOK=n" >> "$CONFIG_FILE"
-          
-          # Add SUSFS configuration settings
           echo "CONFIG_KSU_SUSFS=y" >> "$CONFIG_FILE"
           echo "CONFIG_KSU_SUSFS_HAS_MAGIC_MOUNT=y" >> "$CONFIG_FILE"
           echo "CONFIG_KSU_SUSFS_SUS_PATH=y" >> "$CONFIG_FILE"
@@ -341,12 +456,8 @@ jobs:
           echo "CONFIG_KSU_SUSFS_SPOOF_CMDLINE_OR_BOOTCONFIG=y" >> "$CONFIG_FILE"
           echo "CONFIG_KSU_SUSFS_OPEN_REDIRECT=y" >> "$CONFIG_FILE"
           echo "CONFIG_KSU_SUSFS_SUS_SU=n" >> "$CONFIG_FILE"
-          
-          # Add tmpfs configuration settings
           echo "CONFIG_TMPFS_XATTR=y" >> "$CONFIG_FILE"
           echo "CONFIG_TMPFS_POSIX_ACL=y" >> "$CONFIG_FILE"
-          
-          # Add BBR and networking configurations
           echo "CONFIG_TCP_CONG_ADVANCED=y" >> "$CONFIG_FILE"
           echo "CONFIG_TCP_CONG_BBR=y" >> "$CONFIG_FILE"
           echo "CONFIG_DEFAULT_BBR=y" >> "$CONFIG_FILE"
@@ -364,29 +475,12 @@ jobs:
           echo "CONFIG_IPV6_ECN=y" >> "$CONFIG_FILE"
           echo "CONFIG_IP_NF_TARGET_ECN=y" >> "$CONFIG_FILE"
           echo "CONFIG_TCP_FASTOPEN=y" >> "$CONFIG_FILE"
-          
-          # Add TLL configurations      
           echo "CONFIG_IP_NF_TARGET_TTL=y" >> "$CONFIG_FILE"
           echo "CONFIG_IP6_NF_TARGET_HL=y" >> "$CONFIG_FILE"
           echo "CONFIG_IP6_NF_MATCH_HL=y" >> "$CONFIG_FILE"
-          
-          # Add performance and wakelock blocker configurations
           echo "CONFIG_BOEFFLA_WL_BLOCKER=y" >> "$CONFIG_FILE"
           echo "CONFIG_WQ_POWER_EFFICIENT_DEFAULT=y" >> "$CONFIG_FILE"
           echo "CONFIG_CC_OPTIMIZE_FOR_PERFORMANCE=y" >> "$CONFIG_FILE"
-          
-          # Disable test and debug configurations
-          sed -i 's/CONFIG_REGMAP_KUNIT=m/CONFIG_REGMAP_KUNIT=n/g' "$CONFIG_FILE"
-          sed -i 's/CONFIG_INPUT_KUNIT_TEST=m/CONFIG_INPUT_KUNIT_TEST=n/g' "$CONFIG_FILE"
-          sed -i 's/CONFIG_SND_SOC_TOPOLOGY_KUNIT_TEST=m/CONFIG_SND_SOC_TOPOLOGY_KUNIT_TEST=n/g' "$CONFIG_FILE"
-          sed -i 's/CONFIG_SND_SOC_UTILS_KUNIT_TEST=m/CONFIG_SND_SOC_UTILS_KUNIT_TEST=n/g' "$CONFIG_FILE"
-          sed -i 's/CONFIG_HID_KUNIT_TEST=m/CONFIG_HID_KUNIT_TEST=n/g' "$CONFIG_FILE"
-          sed -i 's/CONFIG_RTC_LIB_KUNIT_TEST=m/CONFIG_RTC_LIB_KUNIT_TEST=n/g' "$CONFIG_FILE"
-          sed -i 's/CONFIG_CLK_KUNIT_TEST=m/CONFIG_CLK_KUNIT_TEST=n/g' "$CONFIG_FILE"
-          sed -i 's/CONFIG_CLK_GATE_KUNIT_TEST=m/CONFIG_CLK_GATE_KUNIT_TEST=n/g' "$CONFIG_FILE"
-          sed -i 's/CONFIG_IIO_FORMAT_KUNIT_TEST=m/CONFIG_IIO_FORMAT_KUNIT_TEST=n/g' "$CONFIG_FILE"
-          sed -i 's/CONFIG_EXT4_KUNIT_TESTS=m/CONFIG_EXT4_KUNIT_TESTS=n/g' "$CONFIG_FILE"
-          sed -i 's/CONFIG_FAT_KUNIT_TEST=m/CONFIG_FAT_KUNIT_TEST=n/g' "$CONFIG_FILE"
           echo "CONFIG_EXT4_INODE_TEST=n" >> "$CONFIG_FILE"
           echo "CONFIG_F_FS_IPC_LOG=n" >> "$CONFIG_FILE"
           echo "CONFIG_HUNG_TASK_ENH=n" >> "$CONFIG_FILE"
@@ -398,34 +492,17 @@ jobs:
           echo "CONFIG_DEBUG_KERNEL=n" >> "$CONFIG_FILE"
           echo "CONFIG_DYNAMIC_DEBUG=n" >> "$CONFIG_FILE"
           echo "CONFIG_DEBUG_INFO=n" >> "$CONFIG_FILE"
-          
-          # Disable printk configurations
           sed -i 's/CONFIG_PRINTK_TIME=y/CONFIG_PRINTK_TIME=n/' "$CONFIG_FILE"
           sed -i 's/CONFIG_PRINTK_CALLER=y/CONFIG_PRINTK_CALLER=n/' "$CONFIG_FILE"
-      - name: Debug Directory Structure
-        run: |
-          echo "Current working directory: $(pwd)"
-          echo "Listing contents of kernel_workspace/kernel_platform:"
-          ls -la kernel_workspace/kernel_platform || echo "kernel_workspace/kernel_platform directory not found"
-          echo "Listing contents of kernel_workspace/kernel_platform/common if it exists:"
-          ls -la kernel_workspace/kernel_platform/common || echo "kernel_workspace/kernel_platform/common directory not found"
-          echo "Searching for gki_defconfig:"
-          find /home/runner/work/Mine/Mine -type f -name gki_defconfig
+
       - name: Update Kconfig for Blacklisted Modules
         run: |
-          echo "Changing to repository root..."
           cd /home/runner/work/Mine/Mine
-          
-          echo "Checking for kernel_platform directory..."
           if [ ! -d "kernel_workspace/kernel_platform" ]; then
             echo "Warning: kernel_workspace/kernel_platform directory not found. Skipping Kconfig updates."
             exit 0
           fi
-          
-          echo "Changing to kernel_platform directory..."
           cd kernel_workspace/kernel_platform
-          
-          echo "Searching for Kconfig files..."
           KCONFIG_FILES=$(find . -name Kconfig)
           if [ -z "$KCONFIG_FILES" ]; then
             echo "No Kconfig files found. Skipping Kconfig updates."
@@ -444,24 +521,19 @@ jobs:
               -e 's/CONFIG_SOC_UTILS_TEST=[ym]/CONFIG_SOC_UTILS_TEST=n/' {} \; || true
             set +x
           fi
+
       - name: Add Configuration Settings
         run: |
-          cd kernel_workspace/kernel_platform
-          CONFIG_FILE=./common/arch/arm64/configs/gki_defconfig
+          cd kernel_workspace/kernel_platform          
           KERNEL_VERSION="${{ github.event.inputs.KERNEL_VERSION }}"
-          # SukiSU Ultra config
           echo "CONFIG_KSU=y" >> "$CONFIG_FILE"
           echo "CONFIG_KPM=y" >> "$CONFIG_FILE"
           if [ "${{ github.event.inputs.VFS }}" = "false" ]; then
             echo "CONFIG_KPROBES=y" >> "$CONFIG_FILE"
           fi
-          # VFS config
           if [ "${{ github.event.inputs.VFS }}" = "true" ]; then
             echo "CONFIG_KSU_MANUAL_HOOK=y" >> "$CONFIG_FILE"
           fi
-          # Remove check_defconfig
-          sed -i 's/check_defconfig//' ./common/build.config.gki
-          # LZ4KD configuration
           if [ "${{ github.event.inputs.ZRAM }}" = "true" ]; then
             if [ "${{ github.event.inputs.KERNEL_VERSION }}" = "5.10" ]; then
               echo "CONFIG_ZSMALLOC=y" >> "$CONFIG_FILE"
@@ -490,7 +562,6 @@ jobs:
                 echo "CONFIG_ZSMALLOC=y" >> "msm-kernel/arch/arm64/configs/${{ github.event.inputs.CPUD }}-GKI.config"
                 echo "CONFIG_ZRAM=y" >> "msm-kernel/arch/arm64/configs/${{ github.event.inputs.CPUD }}-GKI.config"
               fi
-              
               echo "CONFIG_MODULE_SIG_FORCE=n" >> "$CONFIG_FILE"
             elif [ "${{ github.event.inputs.KERNEL_VERSION }}" = "5.10" ] || [ "${{ github.event.inputs.KERNEL_VERSION }}" = "5.15" ]; then
               rm "common/android/gki_aarch64_modules"
@@ -505,6 +576,7 @@ jobs:
           fi
           cd common
           git add -A && git commit -m "Fix: inject random suffix" || true
+
       - name: Build kernel
         if: ${{ github.event.inputs.CPU == 'sm8650' || github.event.inputs.CPU == 'sm7675' }}
         run: |
@@ -512,7 +584,7 @@ jobs:
           export PATH="/usr/lib/ccache:$PATH"
           git add -A && git commit -m "Fix: inject random suffix" || true
           ./kernel_platform/build_with_bazel.py -t ${{ github.event.inputs.CPUD }} ${{ github.event.inputs.BUILD_METHOD }}
-          
+
       - name: Fallback build kernel
         if: ${{ github.event.inputs.CPU != 'sm8650' && github.event.inputs.CPU != 'sm7675' }}
         run: |
@@ -523,11 +595,27 @@ jobs:
           export LTO=thin SYSTEM_DLKM_RE_SIGN=0 BUILD_SYSTEM_DLKM=0 KMI_SYMBOL_LIST_STRICT_MODE=0
           if [ "${{ github.event.inputs.FAST }}" = "true" ]; then
             cd common
-            make -j$(nproc --all) LLVM=-20 ARCH=arm64 RUSTC=$RUSTC CROSS_COMPILE=aarch64-linux-gnu- CROSS_COMPILE_ARM32=arm-linux-gnuabeihf- CC=clang LD=ld.lld HOSTCC=clang HOSTLD=ld.lld O=out KCFLAGS+=-Wno-error gki_defconfig all | tee  ../../../build.txt
+            # Select defconfig based on FEIL
+            case "${{ github.event.inputs.FEIL }}" in
+              "oneplus_13r")
+                DEFCONFIG=vendor_oneplus_13r_defconfig
+                ;;
+              "oneplus_13t")
+                DEFCONFIG=vendor_oneplus_13t_defconfig
+                ;;
+              "oneplus_13")
+                DEFCONFIG=vendor_oneplus_13_defconfig
+                ;;
+              *)
+                DEFCONFIG=gki_defconfig
+                ;;
+            esac
+            make -j$(nproc --all) LLVM=-20 ARCH=arm64 RUSTC=$RUSTC CROSS_COMPILE=aarch64-linux-gnu- CROSS_COMPILE_ARM32=arm-linux-gnuabeihf- CC=clang LD=ld.lld HOSTCC=clang HOSTLD=ld.lld O=out KCFLAGS+=-Wno-error $DEFCONFIG all | tee ../../../build.txt
           else
             cd ..
             ./kernel_platform/oplus/build/oplus_build_kernel.sh ${{ github.event.inputs.CPUD }} ${{ github.event.inputs.BUILD_METHOD }}
           fi
+
       - name: Make AnyKernel3
         run: |
           git clone https://github.com/Numbersf/AnyKernel3 --depth=1
@@ -567,7 +655,7 @@ jobs:
             echo "Image file not found, build may have failed"
             exit 1
           fi
-          # Optionally copy other new files (if they exist)
+          # Optionally copy other files (if they exist)
           if [ "${{ github.event.inputs.CPU }}" = "sm8750" ]; then
             for file in dtbo.img system_dlkm.erofs.img vendor_dlkm.img vendor_boot.img; do
               if [ -f "$dir1$file" ]; then
@@ -581,21 +669,22 @@ jobs:
               fi
             done
           fi
+
       - name: Apply patch_linux and replace Image
         run: |
-          for i in $(find kernel_workspace/kernel_platform/out/ -name "Image"); do
-            cp $i .
-          done
-          wget https://github.com/Winkmoon/Action-Build/raw/main/patchs/patch_linux
+          cd kernel_workspace/kernel_platform/out/msm-kernel-${{ github.event.inputs.CPUD }}-${{ github.event.inputs.BUILD_METHOD }}/dist
+          curl -LO --retry 5 --retry-delay 2 --retry-connrefused https://raw.githubusercontent.com/Numbersf/Action-Build/main/patchs/patch_linux
           chmod +x patch_linux
-          ./patch_linux 2>&1
+          ./patch_linux
           rm -f Image
           mv oImage Image
           cp Image $GITHUB_WORKSPACE/AnyKernel3/Image
+
       - name: Set zip suffix
         id: suffix
         run: |
           echo "value=${{ github.event.inputs.VFS == 'true' && '_VFS' || '' }}${{ github.event.inputs.ZRAM == 'true' && '_LZ4KD' || '' }}" >> $GITHUB_OUTPUT
+
       - name: Auto map FEIL to Android version by manifest
         id: feil_clean
         run: |
@@ -634,6 +723,7 @@ jobs:
             clean_feil="${feil_base}_AndroidUnknown"
           fi
           echo "value=$clean_feil" >> "$GITHUB_OUTPUT"
+
       - name: Upload AnyKernel3
         uses: actions/upload-artifact@v4
         with:
