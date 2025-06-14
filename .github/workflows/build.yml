@@ -257,18 +257,8 @@ jobs:
           echo "CONFIG_IP_ECN=y" >> ./common/arch/arm64/configs/gki_defconfig
           echo "CONFIG_TCP_ECN=y" >> ./common/arch/arm64/configs/gki_defconfig
           echo "CONFIG_IPV6_ECN=y" >> ./common/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_IP_NF_TARGET_ECN=y" >> ./common/arch/arm64/configs/gki_defconfig
-          
-          # Disable blacklisted modules
-          echo "CONFIG_EXT4_INODE_TEST=n" >> ./common/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_F_FS_IPC_LOG=n" >> ./common/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_HUNG_TASK_ENH=n" >> ./common/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_IIO_TEST_FORMAT=n" >> ./common/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_OPLUS_BSP_SIGKILL_DIAGNOSIS=n" >> ./common/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_OPLUS_LOCK_TORTURE=n" >> ./common/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_SOC_TOPOLOGY_TEST=n" >> ./common/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_SOC_UTILS_TEST=n" >> ./common/arch/arm64/configs/gki_defconfig
-          
+          echo "CONFIG_IP_NF_TARGET_ECN=y" >> ./common/arch/arm64/configs/gki_defconfig         
+                    
           # Disable debug options
           echo "CONFIG_DEBUG_KERNEL=n" >> ./common/arch/arm64/configs/gki_defconfig
           echo "CONFIG_DYNAMIC_DEBUG=n" >> ./common/arch/arm64/configs/gki_defconfig
@@ -302,6 +292,53 @@ jobs:
           echo "CONFIG_IP6_NF_TARGET_HL=y" >> ./common/arch/arm64/configs/gki_defconfig
           echo "CONFIG_IP6_NF_MATCH_HL=y" >> ./common/arch/arm64/configs/gki_defconfig
 
+      - name: Disable test and debug configurations
+        run: |
+          echo "Changing to configuration directory: $CONFIG..."
+          cd "$CONFIG/kernel_platform"
+          sed -i 's/CONFIG_REGMAP_KUNIT=m/CONFIG_REGMAP_KUNIT=n/g' "$CONFIG_FILE"
+          sed -i 's/CONFIG_INPUT_KUNIT_TEST=m/CONFIG_INPUT_KUNIT_TEST=n/g' "$CONFIG_FILE"
+          sed -i 's/CONFIG_SND_SOC_TOPOLOGY_KUNIT_TEST=m/CONFIG_SND_SOC_TOPOLOGY_KUNIT_TEST=n/g' "$CONFIG_FILE"
+          sed -i 's/CONFIG_SND_SOC_UTILS_KUNIT_TEST=m/CONFIG_SND_SOC_UTILS_KUNIT_TEST=n/g' "$CONFIG_FILE"
+          sed -i 's/CONFIG_HID_KUNIT_TEST=m/CONFIG_HID_KUNIT_TEST=n/g' "$CONFIG_FILE"
+          sed -i 's/CONFIG_RTC_LIB_KUNIT_TEST=m/CONFIG_RTC_LIB_KUNIT_TEST=n/g' "$CONFIG_FILE"
+          sed -i 's/CONFIG_CLK_KUNIT_TEST=m/CONFIG_CLK_KUNIT_TEST=n/g' "$CONFIG_FILE"
+          sed -i 's/CONFIG_CLK_GATE_KUNIT_TEST=m/CONFIG_CLK_GATE_KUNIT_TEST=n/g' "$CONFIG_FILE"
+          sed -i 's/CONFIG_IIO_FORMAT_KUNIT_TEST=m/CONFIG_IIO_FORMAT_KUNIT_TEST=n/g' "$CONFIG_FILE"
+          sed -i 's/CONFIG_EXT4_KUNIT_TESTS=m/CONFIG_EXT4_KUNIT_TESTS=n/g' "$CONFIG_FILE"
+          sed -i 's/CONFIG_FAT_KUNIT_TEST=m/CONFIG_FAT_KUNIT_TEST=n/g' "$CONFIG_FILE"
+          echo "CONFIG_EXT4_INODE_TEST=n" >> "$CONFIG_FILE"
+          echo "CONFIG_F_FS_IPC_LOG=n" >> "$CONFIG_FILE"
+          echo "CONFIG_HUNG_TASK_ENH=n" >> "$CONFIG_FILE"
+          echo "CONFIG_IIO_TEST_FORMAT=n" >> "$CONFIG_FILE"
+          echo "CONFIG_OPLUS_BSP_SIGKILL_DIAGNOSIS=n" >> "$CONFIG_FILE"
+          echo "CONFIG_OPLUS_LOCK_TORTURE=n" >> "$CONFIG_FILE"
+          echo "CONFIG_SOC_TOPOLOGY_TEST=n" >> "$CONFIG_FILE"
+          echo "CONFIG_SOC_UTILS_TEST=n" >> "$CONFIG_FILE"
+          echo "CONFIG_DEBUG_KERNEL=n" >> "$CONFIG_FILE"
+          echo "CONFIG_DYNAMIC_DEBUG=n" >> "$CONFIG_FILE"
+          echo "CONFIG_DEBUG_INFO=n" >> "$CONFIG_FILE"
+
+          echo "Searching for Kconfig files..."
+          KCONFIG_FILES=$(find . -name Kconfig)
+          if [ -z "$KCONFIG_FILES" ]; then
+            echo "No Kconfig files found. Skipping Kconfig updates."
+          else
+            echo "Found Kconfig files:"
+            echo "$KCONFIG_FILES"
+            set -x
+            find . -name Kconfig -exec sed -i \
+              -e 's/CONFIG_EXT4_INODE_TEST=[ym]/CONFIG_EXT4_INODE_TEST=n/' \
+              -e 's/CONFIG_F_FS_IPC_LOG=[ym]/CONFIG_F_FS_IPC_LOG=n/' \
+              -e 's/CONFIG_HUNG_TASK_ENH=[ym]/CONFIG_HUNG_TASK_ENH=n/' \
+              -e 's/CONFIG_IIO_TEST_FORMAT=[ym]/CONFIG_IIO_TEST_FORMAT=n/' \
+              -e 's/CONFIG_OPLUS_BSP_SIGKILL_DIAGNOSIS=[ym]/CONFIG_OPLUS_BSP_SIGKILL_DIAGNOSIS=n/' \
+              -e 's/CONFIG_OPLUS_LOCK_TORTURE=[ym]/CONFIG_OPLUS_LOCK_TORTURE=n/' \
+              -e 's/CONFIG_SOC_TOPOLOGY_TEST=[ym]/CONFIG_SOC_TOPOLOGY_TEST=n/' \
+              -e 's/CONFIG_SOC_UTILS_TEST=[ym]/CONFIG_SOC_UTILS_TEST=n/' {} \; || true
+            set +x
+          fi
+
       - name: Run sed and perl Commands
         run: |
           echo "Changing to configuration directory: $CONFIG..."
@@ -331,73 +368,6 @@ jobs:
           DATESTR=$(date -u)
           perl -pi -e 's{UTS_VERSION="\$\(echo \$UTS_VERSION \$CONFIG_FLAGS \$TIMESTAMP \| cut -b -\$UTS_LEN\)"}{UTS_VERSION="#1 SMP PREEMPT $DATESTR"}' ./common/scripts/mkcompile_h
           perl -pi -e 's{UTS_VERSION="\$\(echo \$UTS_VERSION \$CONFIG_FLAGS \$TIMESTAMP \| cut -b -\$UTS_LEN\)"}{UTS_VERSION="#1 SMP PREEMPT $DATESTR"}' ./msm-kernel/scripts/mkcompile_h
-      
-      - name: Update Kconfig for Blacklisted Modules
-        run: |
-          set -x
-          find $CONFIG/kernel_platform -name Kconfig -exec sed -i \
-            -e 's/CONFIG_EXT4_INODE_TEST=[ym]/CONFIG_EXT4_INODE_TEST=n/' \
-            -e 's/CONFIG_F_FS_IPC_LOG=[ym]/CONFIG_F_FS_IPC_LOG=n/' \
-            -e 's/CONFIG_HUNG_TASK_ENH=[ym]/CONFIG_HUNG_TASK_ENH=n/' \
-            -e 's/CONFIG_IIO_TEST_FORMAT=[ym]/CONFIG_IIO_TEST_FORMAT=n/' \
-            -e 's/CONFIG_OPLUS_BSP_SIGKILL_DIAGNOSIS=[ym]/CONFIG_OPLUS_BSP_SIGKILL_DIAGNOSIS=n/' \
-            -e 's/CONFIG_OPLUS_LOCK_TORTURE=[ym]/CONFIG_OPLUS_LOCK_TORTURE=n/' \
-            -e 's/CONFIG_SOC_TOPOLOGY_TEST=[ym]/CONFIG_SOC_TOPOLOGY_TEST=n/' \
-            -e 's/CONFIG_SOC_UTILS_TEST=[ym]/CONFIG_SOC_UTILS_TEST=n/' {} \;
-
-      - name: Disable OnePlus Kernel Module
-        run: |
-          if [ "${{ inputs.soc }}" = "pineapple" ]; then
-            echo "Changing to configuration directory: $CONFIG/kernel_platform..."
-            if ! cd "$CONFIG/kernel_platform"; then
-              echo "Error: Failed to change to $CONFIG/kernel_platform directory"
-              exit 1
-            fi
-            CONFIG_FILE=./common/arch/arm64/configs/gki_defconfig
-            if [ ! -f "$CONFIG_FILE" ]; then
-              echo "Error: $CONFIG_FILE not found"
-              exit 1
-            fi
-            echo "Disabling OnePlus kernel modules in $CONFIG_FILE..."
-            # Log initial state of modules
-            echo "Checking initial module states..."
-            for module in CONFIG_REGMAP_KUNIT CONFIG_INPUT_KUNIT_TEST CONFIG_SND_SOC_TOPOLOGY_KUNIT_TEST \
-                          CONFIG_SND_SOC_UTILS_KUNIT_TEST CONFIG_HID_KUNIT_TEST CONFIG_RTC_LIB_KUNIT_TEST \
-                          CONFIG_CLK_KUNIT_TEST CONFIG_CLK_GATE_KUNIT_TEST CONFIG_IIO_FORMAT_KUNIT_TEST \
-                          CONFIG_EXT4_KUNIT_TESTS CONFIG_FAT_KUNIT_TEST; do
-              if grep -q "${module}" "$CONFIG_FILE"; then
-                grep "${module}" "$CONFIG_FILE" || echo "${module} not found in $CONFIG_FILE"
-              else
-                echo "${module} not present in $CONFIG_FILE"
-              fi
-            done
-            # Apply sed replacements
-            sed -i -e 's/CONFIG_REGMAP_KUNIT=m/CONFIG_REGMAP_KUNIT=n/g' \
-                   -e 's/CONFIG_INPUT_KUNIT_TEST=m/CONFIG_INPUT_KUNIT_TEST=n/g' \
-                   -e 's/CONFIG_SND_SOC_TOPOLOGY_KUNIT_TEST=m/CONFIG_SND_SOC_TOPOLOGY_KUNIT_TEST=n/g' \
-                   -e 's/CONFIG_SND_SOC_UTILS_KUNIT_TEST=m/CONFIG_SND_SOC_UTILS_KUNIT_TEST=n/g' \
-                   -e 's/CONFIG_HID_KUNIT_TEST=m/CONFIG_HID_KUNIT_TEST=n/g' \
-                   -e 's/CONFIG_RTC_LIB_KUNIT_TEST=m/CONFIG_RTC_LIB_KUNIT_TEST=n/g' \
-                   -e 's/CONFIG_CLK_KUNIT_TEST=m/CONFIG_CLK_KUNIT_TEST=n/g' \
-                   -e 's/CONFIG_CLK_GATE_KUNIT_TEST=m/CONFIG_CLK_GATE_KUNIT_TEST=n/g' \
-                   -e 's/CONFIG_IIO_FORMAT_KUNIT_TEST=m/CONFIG_IIO_FORMAT_KUNIT_TEST=n/g' \
-                   -e 's/CONFIG_EXT4_KUNIT_TESTS=m/CONFIG_EXT4_KUNIT_TESTS=n/g' \
-                   -e 's/CONFIG_FAT_KUNIT_TEST=m/CONFIG_FAT_KUNIT_TEST=n/g' "$CONFIG_FILE"
-            # Verify changes
-            echo "Verifying module disabling..."
-            for module in CONFIG_REGMAP_KUNIT CONFIG_INPUT_KUNIT_TEST CONFIG_SND_SOC_TOPOLOGY_KUNIT_TEST \
-                          CONFIG_SND_SOC_UTILS_KUNIT_TEST CONFIG_HID_KUNIT_TEST CONFIG_RTC_LIB_KUNIT_TEST \
-                          CONFIG_CLK_KUNIT_TEST CONFIG_CLK_GATE_KUNIT_TEST CONFIG_IIO_FORMAT_KUNIT_TEST \
-                          CONFIG_EXT4_KUNIT_TESTS CONFIG_FAT_KUNIT_TEST; do
-              if grep -q "${module}=n" "$CONFIG_FILE"; then
-                echo "${module} successfully disabled"
-              else
-                echo "Warning: ${module} not disabled or not present in $CONFIG_FILE"
-              fi
-            done
-          else
-            echo "Skipping module disabling for soc=${{ inputs.soc }} (only applies to pineapple)"
-          fi
          
       - name: Build the Kernel
         run: |
