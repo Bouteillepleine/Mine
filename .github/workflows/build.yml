@@ -347,22 +347,44 @@ jobs:
 
       - name: Disable OnePlus Kernel Module
         run: |
-          echo "Changing to configuration directory: $CONFIG..."
-          cd "$CONFIG/kernel_platform"
-          CONFIG_FILE=./common/arch/arm64/configs/gki_defconfig
-          echo "Disabling OnePlus kernel modules in $CONFIG_FILE..."
-          sed -i 's/CONFIG_REGMAP_KUNIT=m/CONFIG_REGMAP_KUNIT=n/g' "$CONFIG_FILE"
-          sed -i 's/CONFIG_INPUT_KUNIT_TEST=m/CONFIG_INPUT_KUNIT_TEST=n/g' "$CONFIG_FILE"
-          sed -i 's/CONFIG_SND_SOC_TOPOLOGY_KUNIT_TEST=m/CONFIG_SND_SOC_TOPOLOGY_KUNIT_TEST=n/g' "$CONFIG_FILE"
-          sed -i 's/CONFIG_SND_SOC_UTILS_KUNIT_TEST=m/CONFIG_SND_SOC_UTILS_KUNIT_TEST=n/g' "$CONFIG_FILE"
-          sed -i 's/CONFIG_HID_KUNIT_TEST=m/CONFIG_HID_KUNIT_TEST=n/g' "$CONFIG_FILE"
-          sed -i 's/CONFIG_RTC_LIB_KUNIT_TEST=m/CONFIG_RTC_LIB_KUNIT_TEST=n/g' "$CONFIG_FILE"
-          sed -i 's/CONFIG_CLK_KUNIT_TEST=m/CONFIG_CLK_KUNIT_TEST=n/g' "$CONFIG_FILE"
-          sed -i 's/CONFIG_CLK_GATE_KUNIT_TEST=m/CONFIG_CLK_GATE_KUNIT_TEST=n/g' "$CONFIG_FILE"
-          sed -i 's/CONFIG_IIO_FORMAT_KUNIT_TEST=m/CONFIG_IIO_FORMAT_KUNIT_TEST=n/g' "$CONFIG_FILE"
-          sed -i 's/CONFIG_EXT4_KUNIT_TESTS=m/CONFIG_EXT4_KUNIT_TESTS=n/g' "$CONFIG_FILE"
-          sed -i 's/CONFIG_FAT_KUNIT_TEST=m/CONFIG_FAT_KUNIT_TEST=n/g' "$CONFIG_FILE"
-
+          if [ "${{ inputs.soc }}" = "pineapple" ]; then
+            echo "Changing to configuration directory: $CONFIG/kernel_platform..."
+            if ! cd "$CONFIG/kernel_platform"; then
+              echo "Error: Failed to change to $CONFIG/kernel_platform directory"
+              exit 1
+            fi
+            CONFIG_FILE=./common/arch/arm64/configs/gki_defconfig
+            if [ ! -f "$CONFIG_FILE" ]; then
+              echo "Error: $CONFIG_FILE not found"
+              exit 1
+            fi
+            echo "Disabling OnePlus kernel modules in $CONFIG_FILE..."
+            sed -i -e 's/CONFIG_REGMAP_KUNIT=m/CONFIG_REGMAP_KUNIT=n/g' \
+                   -e 's/CONFIG_INPUT_KUNIT_TEST=m/CONFIG_INPUT_KUNIT_TEST=n/g' \
+                   -e 's/CONFIG_SND_SOC_TOPOLOGY_KUNIT_TEST=m/CONFIG_SND_SOC_TOPOLOGY_KUNIT_TEST=n/g' \
+                   -e 's/CONFIG_SND_SOC_UTILS_KUNIT_TEST=m/CONFIG_SND_SOC_UTILS_KUNIT_TEST=n/g' \
+                   -e 's/CONFIG_HID_KUNIT_TEST=m/CONFIG_HID_KUNIT_TEST=n/g' \
+                   -e 's/CONFIG_RTC_LIB_KUNIT_TEST=m/CONFIG_RTC_LIB_KUNIT_TEST=n/g' \
+                   -e 's/CONFIG_CLK_KUNIT_TEST=m/CONFIG_CLK_KUNIT_TEST=n/g' \
+                   -e 's/CONFIG_CLK_GATE_KUNIT_TEST=m/CONFIG_CLK_GATE_KUNIT_TEST=n/g' \
+                   -e 's/CONFIG_IIO_FORMAT_KUNIT_TEST=m/CONFIG_IIO_FORMAT_KUNIT_TEST=n/g' \
+                   -e 's/CONFIG_EXT4_KUNIT_TESTS=m/CONFIG_EXT4_KUNIT_TESTS=n/g' \
+                   -e 's/CONFIG_FAT_KUNIT_TEST=m/CONFIG_FAT_KUNIT_TEST=n/g' "$CONFIG_FILE"
+            echo "Verifying module disabling..."
+            for module in CONFIG_REGMAP_KUNIT CONFIG_INPUT_KUNIT_TEST CONFIG_SND_SOC_TOPOLOGY_KUNIT_TEST \
+                          CONFIG_SND_SOC_UTILS_KUNIT_TEST CONFIG_HID_KUNIT_TEST CONFIG_RTC_LIB_KUNIT_TEST \
+                          CONFIG_CLK_KUNIT_TEST CONFIG_CLK_GATE_KUNIT_TEST CONFIG_IIO_FORMAT_KUNIT_TEST \
+                          CONFIG_EXT4_KUNIT_TESTS CONFIG_FAT_KUNIT_TEST; do
+              if grep -q "${module}=n" "$CONFIG_FILE"; then
+                echo "${module} successfully disabled"
+              else
+                echo "Warning: ${module} not disabled or not present in $CONFIG_FILE"
+              fi
+            done
+          else
+            echo "Skipping module disabling for soc=${{ inputs.soc }} (only applies to pineapple)"
+          fi
+         
       - name: Build the Kernel
         run: |
           echo "Changing to configuration directory: $CONFIG..."
