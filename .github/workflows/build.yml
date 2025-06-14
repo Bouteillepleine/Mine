@@ -381,6 +381,9 @@ jobs:
           sed -i "/stable_scmversion_cmd/s/-maybe-dirty//g" ./build/kernel/kleaf/impl/stamp.bzl || echo "No stamp.bzl!"
           sed -i 's/-dirty//' ./build/kernel/kleaf/workspace_status_stamp.py || echo "No workspace_status_stamp.py!"
           
+          # Patch workspace_status.sh to use correct repo path
+          sed -i 's|PATH=/usr/bin /bin/repo|PATH=$PATH $REPO_PATH|' ./build/kernel/kleaf/workspace_status.sh || echo "No workspace_status.sh!"
+          
           # Generate random suffix for kernel version
           RANDOM_DIGIT=$(od -An -N1 -tu1 < /dev/urandom | tr -d '[:space:]' | awk '{print $1 % 11}')
           RANDOM_HASH=$(od -An -N7 -tx1 /dev/urandom | tr -d ' \n')
@@ -489,6 +492,8 @@ jobs:
           
           if [ -f ./kernel_platform/build_with_bazel.py ]; then
             ./kernel_platform/oplus/bazel/oplus_modules_variant.sh ${{ inputs.soc }} "$BUILD_TYPE" ""
+            # Disable sparse format for lpmake to avoid invalid header errors
+            export LPMAKE_NO_SPARSE=1
             ./kernel_platform/build_wrapper.sh ./kernel_platform/build_with_bazel.py -t ${{ inputs.soc }} $BUILD_TYPE "${BAZEL_ARGS[@]}" -o "$(pwd)/out"
           else
             LTO=thin ./kernel_platform/oplus/build/oplus_build_kernel.sh ${{ inputs.soc }} "$BUILD_TYPE"
@@ -510,7 +515,7 @@ jobs:
           cd ./AnyKernel3
 
           # Zip the files in the AnyKernel3 directory with a new naming convention
-          ZIP_NAME="${{ inputs.model }}_${{ inputs.android_version }}_${{ inputs.kernel_version }}_KSUN-${{ env.KSUVER }}_SUSFS-${{ env.SUSFSVER }}_AnyKernel3.zip"
+          ZIP_NAME="${{ inputs.model }}_${{ inputs.android_version }}}_${{ inputs.kernel_version }}_KSUN-${{ env.KSUVER }}_SUSFS-${{ env.SUSFSVER }}_AnyKernel3.zip"
           echo "Creating zip file $ZIP_NAME..."
           zip -r "../$ZIP_NAME" ./*
 
