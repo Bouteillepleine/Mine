@@ -182,11 +182,7 @@ jobs:
           mkdir kernel_platform && cd kernel_platform
           wget https://github.com/reigadegr/Action-Build/raw/gki_official/fengchi.patch || {
             echo "Error: Failed to download fengchi.patch"
-            exit 1
-          }
-          wget https://github.com/reigadegr/Action-Build/raw/suki/black_module.patch || {
-            echo "Error: Failed to download black_module.patch"
-            exit 1
+            exit 1        
           }
           repo init -u https://github.com/OnePlusOSS/kernel_manifest.git -b refs/heads/oneplus/${{ github.event.inputs.CPU }} -m ${{ github.event.inputs.FEIL }}.xml --depth=1
           repo sync -c -j$(nproc --all) --no-tags --no-clone-bundle --force-sync || {
@@ -228,33 +224,7 @@ jobs:
           fi
           rm kernel_platform/common/android/abi_gki_protected_exports_* 2>/dev/null || echo "No protected exports in kernel_platform/common/android!"
           rm kernel_platform/msm-kernel/android/abi_gki_protected_exports_* 2>/dev/null || echo "No protected exports in kernel_platform/msm-kernel/android!"
-
-      - name: Debug Directory Structure
-        run: |
-          echo "Current working directory: $(pwd)"
-          echo "Listing contents of kernel_workspace/kernel_platform:"
-          ls -la kernel_workspace/kernel_platform || echo "kernel_workspace/kernel_platform directory not found"
-          echo "Listing contents of kernel_workspace/kernel_platform/common if it exists:"
-          ls -la kernel_workspace/kernel_platform/common || echo "kernel_workspace/kernel_platform/common directory not found"
-          echo "Listing contents of kernel_workspace/kernel_platform/common/arch/arm64/configs if it exists:"
-          ls -la kernel_workspace/kernel_platform/common/arch/arm64/configs || echo "kernel_workspace/kernel_platform/common/arch/arm64/configs directory not found"
-          echo "Listing contents of kernel_workspace/kernel_platform/msm-kernel/arch/arm64/configs if it exists:"
-          ls -la kernel_workspace/kernel_platform/msm-kernel/arch/arm64/configs || echo "kernel_workspace/kernel_platform/msm-kernel/arch/arm64/configs directory not found"
-          echo "Listing all defconfig files:"
-          find kernel_workspace/kernel_platform -name "*defconfig"
-
-      - name: Remove OnePlus Kernel Module
-        run: |
-          cd kernel_workspace/kernel_platform/common
-          for i in "kernel/sched/slim_sysctl.c" "kernel/sched/slim.h"; do
-            if [ -f "$i" ]; then
-              rm -f "$i"
-            fi
-          done
-          git apply black_module.patch
-          sed -i 's/check_defconfig//' ./build.config.gki
-          echo "Remove kernel module completed"
-
+      
       - name: Disable OnePlus Kernel Module
         run: |
           cd kernel_workspace/kernel_platform
