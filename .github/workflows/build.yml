@@ -359,6 +359,19 @@ jobs:
               exit 1
             fi
             echo "Disabling OnePlus kernel modules in $CONFIG_FILE..."
+            # Log initial state of modules
+            echo "Checking initial module states..."
+            for module in CONFIG_REGMAP_KUNIT CONFIG_INPUT_KUNIT_TEST CONFIG_SND_SOC_TOPOLOGY_KUNIT_TEST \
+                          CONFIG_SND_SOC_UTILS_KUNIT_TEST CONFIG_HID_KUNIT_TEST CONFIG_RTC_LIB_KUNIT_TEST \
+                          CONFIG_CLK_KUNIT_TEST CONFIG_CLK_GATE_KUNIT_TEST CONFIG_IIO_FORMAT_KUNIT_TEST \
+                          CONFIG_EXT4_KUNIT_TESTS CONFIG_FAT_KUNIT_TEST; do
+              if grep -q "${module}" "$CONFIG_FILE"; then
+                grep "${module}" "$CONFIG_FILE" || echo "${module} not found in $CONFIG_FILE"
+              else
+                echo "${module} not present in $CONFIG_FILE"
+              fi
+            done
+            # Apply sed replacements
             sed -i -e 's/CONFIG_REGMAP_KUNIT=m/CONFIG_REGMAP_KUNIT=n/g' \
                    -e 's/CONFIG_INPUT_KUNIT_TEST=m/CONFIG_INPUT_KUNIT_TEST=n/g' \
                    -e 's/CONFIG_SND_SOC_TOPOLOGY_KUNIT_TEST=m/CONFIG_SND_SOC_TOPOLOGY_KUNIT_TEST=n/g' \
@@ -370,6 +383,7 @@ jobs:
                    -e 's/CONFIG_IIO_FORMAT_KUNIT_TEST=m/CONFIG_IIO_FORMAT_KUNIT_TEST=n/g' \
                    -e 's/CONFIG_EXT4_KUNIT_TESTS=m/CONFIG_EXT4_KUNIT_TESTS=n/g' \
                    -e 's/CONFIG_FAT_KUNIT_TEST=m/CONFIG_FAT_KUNIT_TEST=n/g' "$CONFIG_FILE"
+            # Verify changes
             echo "Verifying module disabling..."
             for module in CONFIG_REGMAP_KUNIT CONFIG_INPUT_KUNIT_TEST CONFIG_SND_SOC_TOPOLOGY_KUNIT_TEST \
                           CONFIG_SND_SOC_UTILS_KUNIT_TEST CONFIG_HID_KUNIT_TEST CONFIG_RTC_LIB_KUNIT_TEST \
