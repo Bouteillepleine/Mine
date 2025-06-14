@@ -296,38 +296,65 @@ jobs:
         run: |
           echo "Changing to configuration directory: $CONFIG..."
           cd "$CONFIG/kernel_platform"
-          sed -i 's/CONFIG_REGMAP_KUNIT=m/CONFIG_REGMAP_KUNIT=n/g' "$CONFIG_FILE"
-          sed -i 's/CONFIG_INPUT_KUNIT_TEST=m/CONFIG_INPUT_KUNIT_TEST=n/g' "$CONFIG_FILE"
-          sed -i 's/CONFIG_SND_SOC_TOPOLOGY_KUNIT_TEST=m/CONFIG_SND_SOC_TOPOLOGY_KUNIT_TEST=n/g' "$CONFIG_FILE"
-          sed -i 's/CONFIG_SND_SOC_UTILS_KUNIT_TEST=m/CONFIG_SND_SOC_UTILS_KUNIT_TEST=n/g' "$CONFIG_FILE"
-          sed -i 's/CONFIG_HID_KUNIT_TEST=m/CONFIG_HID_KUNIT_TEST=n/g' "$CONFIG_FILE"
-          sed -i 's/CONFIG_RTC_LIB_KUNIT_TEST=m/CONFIG_RTC_LIB_KUNIT_TEST=n/g' "$CONFIG_FILE"
-          sed -i 's/CONFIG_CLK_KUNIT_TEST=m/CONFIG_CLK_KUNIT_TEST=n/g' "$CONFIG_FILE"
-          sed -i 's/CONFIG_CLK_GATE_KUNIT_TEST=m/CONFIG_CLK_GATE_KUNIT_TEST=n/g' "$CONFIG_FILE"
-          sed -i 's/CONFIG_IIO_FORMAT_KUNIT_TEST=m/CONFIG_IIO_FORMAT_KUNIT_TEST=n/g' "$CONFIG_FILE"
-          sed -i 's/CONFIG_EXT4_KUNIT_TESTS=m/CONFIG_EXT4_KUNIT_TESTS=n/g' "$CONFIG_FILE"
-          sed -i 's/CONFIG_FAT_KUNIT_TEST=m/CONFIG_FAT_KUNIT_TEST=n/g' "$CONFIG_FILE"
-          echo "CONFIG_EXT4_INODE_TEST=n" >> "$CONFIG_FILE"
-          echo "CONFIG_F_FS_IPC_LOG=n" >> "$CONFIG_FILE"
-          echo "CONFIG_HUNG_TASK_ENH=n" >> "$CONFIG_FILE"
-          echo "CONFIG_IIO_TEST_FORMAT=n" >> "$CONFIG_FILE"
-          echo "CONFIG_OPLUS_BSP_SIGKILL_DIAGNOSIS=n" >> "$CONFIG_FILE"
-          echo "CONFIG_OPLUS_LOCK_TORTURE=n" >> "$CONFIG_FILE"
-          echo "CONFIG_SOC_TOPOLOGY_TEST=n" >> "$CONFIG_FILE"
-          echo "CONFIG_SOC_UTILS_TEST=n" >> "$CONFIG_FILE"
-          echo "CONFIG_DEBUG_KERNEL=n" >> "$CONFIG_FILE"
-          echo "CONFIG_DYNAMIC_DEBUG=n" >> "$CONFIG_FILE"
-          echo "CONFIG_DEBUG_INFO=n" >> "$CONFIG_FILE"
-
+          
+          CONFIG_FILE="./common/arch/arm64/configs/gki_defconfig"
+          if [ ! -f "$CONFIG_FILE" ]; then
+            echo "Warning: $CONFIG_FILE not found, creating new file."
+            mkdir -p "$(dirname "$CONFIG_FILE")"
+            touch "$CONFIG_FILE"
+          fi
+          
+          echo "Disabling test and debug configurations in $CONFIG_FILE..."
+          for config in \
+            "CONFIG_REGMAP_KUNIT=m/CONFIG_REGMAP_KUNIT=n" \
+            "CONFIG_INPUT_KUNIT_TEST=m/CONFIG_INPUT_KUNIT_TEST=n" \
+            "CONFIG_SND_SOC_TOPOLOGY_KUNIT_TEST=m/CONFIG_SND_SOC_TOPOLOGY_KUNIT_TEST=n" \
+            "CONFIG_SND_SOC_UTILS_KUNIT_TEST=m/CONFIG_SND_SOC_UTILS_KUNIT_TEST=n" \
+            "CONFIG_HID_KUNIT_TEST=m/CONFIG_HID_KUNIT_TEST=n" \
+            "CONFIG_RTC_LIB_KUNIT_TEST=m/CONFIG_RTC_LIB_KUNIT_TEST=n" \
+            "CONFIG_CLK_KUNIT_TEST=m/CONFIG_CLK_KUNIT_TEST=n" \
+            "CONFIG_CLK_GATE_KUNIT_TEST=m/CONFIG_CLK_GATE_KUNIT_TEST=n" \
+            "CONFIG_IIO_FORMAT_KUNIT_TEST=m/CONFIG_IIO_FORMAT_KUNIT_TEST=n" \
+            "CONFIG_EXT4_KUNIT_TESTS=m/CONFIG_EXT4_KUNIT_TESTS=n" \
+            "CONFIG_FAT_KUNIT_TEST=m/CONFIG_FAT_KUNIT_TEST=n"; do
+            pattern="${config%%/*}"
+            if grep -q "$pattern" "$CONFIG_FILE"; then
+              sed -i "s|$pattern|${config#*/}|g" "$CONFIG_FILE" || echo "Warning: Failed to modify $pattern in $CONFIG_FILE"
+              echo "Disabled $pattern"
+            else
+              echo "Module $pattern not found in $CONFIG_FILE, skipping."
+            fi
+          done
+          
+          for config in \
+            "CONFIG_EXT4_INODE_TEST=n" \
+            "CONFIG_F_FS_IPC_LOG=n" \
+            "CONFIG_HUNG_TASK_ENH=n" \
+            "CONFIG_IIO_TEST_FORMAT=n" \
+            "CONFIG_OPLUS_BSP_SIGKILL_DIAGNOSIS=n" \
+            "CONFIG_OPLUS_LOCK_TORTURE=n" \
+            "CONFIG_SOC_TOPOLOGY_TEST=n" \
+            "CONFIG_SOC_UTILS_TEST=n" \
+            "CONFIG_DEBUG_KERNEL=n" \
+            "CONFIG_DYNAMIC_DEBUG=n" \
+            "CONFIG_DEBUG_INFO=n"; do
+            if ! grep -q "${config%=*}" "$CONFIG_FILE"; then
+              echo "$config" >> "$CONFIG_FILE"
+              echo "Added $config to $CONFIG_FILE"
+            else
+              echo "${config%=*} already set in $CONFIG_FILE, skipping."
+            fi
+          done
+          
           echo "Searching for Kconfig files..."
-          KCONFIG_FILES=$(find . -name Kconfig)
+          KCONFIG_FILES=$(find ./common -name Kconfig)
           if [ -z "$KCONFIG_FILES" ]; then
-            echo "No Kconfig files found. Skipping Kconfig updates."
+            echo "No Kconfig files found in ./common. Skipping Kconfig updates."
           else
             echo "Found Kconfig files:"
             echo "$KCONFIG_FILES"
             set -x
-            find . -name Kconfig -exec sed -i \
+            find ./common -name Kconfig -exec sed -i \
               -e 's/CONFIG_EXT4_INODE_TEST=[ym]/CONFIG_EXT4_INODE_TEST=n/' \
               -e 's/CONFIG_F_FS_IPC_LOG=[ym]/CONFIG_F_FS_IPC_LOG=n/' \
               -e 's/CONFIG_HUNG_TASK_ENH=[ym]/CONFIG_HUNG_TASK_ENH=n/' \
