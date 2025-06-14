@@ -170,7 +170,6 @@ jobs:
 
       - name: Apply SUSFS Patches
         run: |
-          set -x
           echo "Changing to configuration directory: $CONFIG..."
           cd "$CONFIG/kernel_platform"
           
@@ -183,49 +182,45 @@ jobs:
           
           cd ./KernelSU-Next
           
-          echo "Applying kernel-patch-susfs-v${{ env.SUSFSVER }}-to-KernelSU-Next.patch..."
-          cp ../../../kernel_patches/next/ksun_susfs_v${{ env.SUSFSVER }}_patch_12647+.patch ./ksun_susfs_patch.patch || echo "Patch file not found, checking if already applied..."
-          if [ -f ksun_susfs_patch.patch ]; then
-            patch -p1 --forward --verbose < ksun_susfs_patch.patch --dry-run > patch_dry_run.log 2>&1
-            if grep -q "Reversed (or previously applied) patch detected" patch_dry_run.log; then
-              echo "SUSFS patch v${{ env.SUSFSVER }} already applied, skipping..."
-            else
-              patch -p1 --forward --verbose < ksun_susfs_patch.patch || true
-            fi
-            ls -l kernel/*.rej || true
-            cat kernel/*.rej || true
-          else
-            echo "No SUSFS patch file found for v${{ env.SUSFSVER }}, assuming changes are included in KernelSU-Next branch."
+          if [ "${{ inputs.ksun_branch }}" == "stable" ] || [ "${{ inputs.ksun_branch }}" == "next" ]; then
+            echo "Applying next SUSFS patches..."
+            cp ../../../kernel_patches/next/ksun_susfs_v1.5.7_patch_12647+.patch ./ksun_susfs_latest.patch
+            patch -p1 --forward < ksun_susfs_latest.patch || true
           fi
           
-          # Find the common directory dynamically
-          COMMON_DIR=$(find . -type d -name common -maxdepth 3 | head -n 1)
-          if [ -z "$COMMON_DIR" ]; then
-            echo "Error: Could not find 'common' directory in kernel_platform"
-            exit 1
-          fi
-          cd "$COMMON_DIR"
+          # Determine base version based on branch
+          case "${{ inputs.ksun_branch }}" in
+            next|stable)
+              BASE_VERSION=10200
+              ;;
+            next-susfs|next-susfs-dev)
+              BASE_VERSION=10198
+              ;;
+            *)
+              BASE_VERSION=10200
+              ;;
+          esac
           
-          # Apply fs.h include for specific SOCs
-          if [ "${{ inputs.soc }}" = "sun" ] || [ "${{ inputs.soc }}" = "pineapple" ]; then
-            if ! grep -qxF '#include <trace/hooks/fs.h>' ./fs/namespace.c; then
-              sed -i '/#include <trace\/hooks\/blk.h>/a #include <trace\/hooks\/fs.h>' ./fs/namespace.c
-            else
-              echo "Line already present. Skipping insert."
-            fi
-          fi
+          cd ./kernel
+          KSU_VERSION=$(expr $(/usr/bin/git rev-list --count HEAD) "+" $BASE_VERSION)
+          echo "KSUVER=$KSU_VERSION" >> $GITHUB_ENV
+          sed -i "s/DKSU_VERSION=11998/DKSU_VERSION=${KSU_VERSION}/" Makefile
           
-          # Apply SUSFS GKI patch
-          if ! patch -p1 --dry-run < 50_add_susfs_in_gki-${{ inputs.android_version }}-${{ inputs.kernel_version }}.patch > /dev/null 2>&1; then
-            echo "SUSFS GKI patch already applied or incompatible, skipping..."
-          else
-            patch -p1 < 50_add_susfs_in_gki-${{ inputs.android_version }}-${{ inputs.kernel_version }}.patch || true
+          # Change to common directory and apply SUSFS patch
+          cd ../../common
+          if [ "${{ inputs.soc }}" = "sun" ]; then
+              if ! grep -qxF '#include <trace/hooks/fs.h>' ./fs/namespace.c; then
+                  sed -i '/#include <trace\/hooks\/blk.h>/a #include <trace\/hooks\/fs.h>' ./fs/namespace.c
+              else
+                  echo "Line already present. Skipping insert."
+              fi
           fi
+          patch -p1 < 50_add_susfs_in_gki-${{ inputs.android_version }}-${{ inputs.kernel_version }}.patch || true
           
           if ! grep -qxF '#define CMD_SUSFS_HIDE_SUS_MNTS_FOR_ALL_PROCS 0x55561' ./include/linux/susfs_def.h; then
-            curl -Ls https://raw.githubusercontent.com/fatalcoder524/kernel_patches_additional/refs/heads/main/hide_sus_mnts_for_all_procs.patch | patch -p1 -F 3 || true
+              curl -Ls https://raw.githubusercontent.com/fatalcoder524/kernel_patches_additional/refs/heads/main/hide_sus_mnts_for_all_procs.patch  | patch -p1 -F 3
           else
-            echo "Line already present. Skipping SUSFS_HIDE_SUS_MNTS_FOR_ALL_PROCS Patch."
+              echo "Line already present. Skipping SUSFS_HIDE_SUS_MNTS_FOR_ALL_PROCS Patch."
           fi
           
           KERNEL_VERSION="${{ inputs.kernel_version }}"
@@ -233,7 +228,7 @@ jobs:
           
           if [ "$(printf '%s\n' "$KERNEL_VERSION" "$MIN_VERSION" | sort -V | head -n1)" = "$KERNEL_VERSION" ]; then
             echo "Patching ptrace!"
-            curl -Ls https://raw.githubusercontent.com/fatalcoder524/kernel_patches_additional/refs/heads/main/ptrace.patch | patch -p1 -F 3 || true
+            curl -Ls https://raw.githubusercontent.com/fatalcoder524/kernel_patches_additional/refs/heads/main/ptrace.patch  | patch -p1 -F 3
           else
             echo "Kernel >= $MIN_VERSION, skipping ptrace patch"
           fi
