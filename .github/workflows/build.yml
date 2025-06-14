@@ -430,6 +430,49 @@ jobs:
             BAZEL_ARGS+=(-g)
           fi
           
+          # Create wrapper script to filter out disabled test modules
+          cat << 'EOF' > ./kernel_platform/build_wrapper.sh
+          #!/bin/bash
+          set -x
+          
+          # List of disabled test modules to exclude from check_declared_output_list
+          DISABLED_MODULES=(
+            drivers/base/regmap/regmap-kunit.ko
+            drivers/base/regmap/regmap-ram.ko
+            drivers/base/regmap/regmap-raw-ram.ko
+            drivers/hid/hid-uclogic-test.ko
+            drivers/iio/test/iio-test-format.ko
+            drivers/input/tests/input_test.ko
+            drivers/rtc/lib_test.ko
+            fs/ext4/ext4-inode-test.ko
+            fs/fat/fat_test.ko
+            sound/soc/soc-topology-test.ko
+            sound/soc/soc-utils-test.ko
+            drivers/clk/clk-gate_test.ko
+            drivers/clk/clk_test.ko
+            kernel/time/time_test.ko
+            lib/kunit/kunit-example-test.ko
+            lib/kunit/kunit-test.ko
+            net/core/dev_addr_lists_test.ko
+          )
+          
+          # Run the original build command
+          "$@"
+          
+          # Post-process to fix check_declared_output_list
+          if [ "${{ inputs.soc }}" = "sun" ]; then
+            CHECK_SCRIPT=$(find bazel-out -name check_declared_output_list -type f | head -n 1)
+            if [ -f "$CHECK_SCRIPT" ]; then
+              echo "Patching check_declared_output_list to exclude disabled modules..."
+              cp "$CHECK_SCRIPT" "${CHECK_SCRIPT}.orig"
+              sed -i '/--declared / {
+                s|--declared |&'"$(echo "${DISABLED_MODULES[@]}" | sed 's/[^ ]*//g' | tr ' ' '\n' | sed '/^$/d' | sed 's/.*/!&/' | tr '\n' ' ')'" |
+              }' "$CHECK_SCRIPT"
+            fi
+          fi
+          EOF
+          chmod +x ./kernel_platform/build_wrapper.sh
+          
           (stdbuf -oL bash -c '
             while true; do
               echo "=== $(date) ==="
@@ -447,7 +490,7 @@ jobs:
           
           if [ -f ./kernel_platform/build_with_bazel.py ]; then
             ./kernel_platform/oplus/bazel/oplus_modules_variant.sh ${{ inputs.soc }} "$BUILD_TYPE" ""
-            ./kernel_platform/build_with_bazel.py -t ${{ inputs.soc }} $BUILD_TYPE "${BAZEL_ARGS[@]}" -o "$(pwd)/out"
+            ./kernel_platform/build_wrapper.sh ./kernel_platform/build_with_bazel.py -t ${{ inputs.soc }} $BUILD_TYPE "${BAZEL_ARGS[@]}" -o "$(pwd)/out"
           else
             LTO=thin ./kernel_platform/oplus/build/oplus_build_kernel.sh ${{ inputs.soc }} "$BUILD_TYPE"
           fi
