@@ -292,6 +292,14 @@ jobs:
           echo "CONFIG_IP6_NF_TARGET_HL=y" >> ./common/arch/arm64/configs/gki_defconfig
           echo "CONFIG_IP6_NF_MATCH_HL=y" >> ./common/arch/arm64/configs/gki_defconfig
 
+      - name: 🔧 Add sched_ext
+        run: |
+         cd "$CONFIG/kernel_platform"
+         git clone https://github.com/HanKuCha/sched_ext.git
+         cp -r ./sched_ext/* ./common/kernel/sched
+         rm -rf ./sched_ext/.git
+         cd common/kernel/sched
+
       - name: Disable test and debug configurations
         run: |
           if [ -z "$CONFIG" ]; then
