@@ -294,12 +294,13 @@ jobs:
 
       - name: 🔧 Add sched_ext
         run: |
+         if [ "${{ inputs.soc }}" == "sun" ]; then
          cd "$CONFIG/kernel_platform"
          git clone https://github.com/HanKuCha/sched_ext.git
          cp -r ./sched_ext/* ./common/kernel/sched
          rm -rf ./sched_ext/.git
          cd common/kernel/sched
-
+         fi
       - name: Disable test and debug configurations
         run: |
           if [ -z "$CONFIG" ]; then
