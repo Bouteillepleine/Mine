@@ -1,10 +1,6 @@
 name: OnePlus_13rV2
 
 on:
-  workflow_dispatch:
-  schedule:
-    - cron: '0 16 * * *'
-
 env:
   RETENTION_COUNT: 3
   CPU: sm8650
