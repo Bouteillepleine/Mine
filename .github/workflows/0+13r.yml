@@ -2,8 +2,7 @@ name: OnePlus_13R
 on:
   workflow_dispatch:
   schedule:
-    - cron: '0 16 * * *'
-
+    
 env:
   RETENTION_COUNT: 3  # Reduced from 7 to 3
   CPU: 'sm8650'
