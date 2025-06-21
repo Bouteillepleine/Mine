@@ -1,4 +1,4 @@
-name: OnePlus 13R Kernel Compilation
+name: OnePlus 13R
 on:
   workflow_dispatch:
   schedule:
