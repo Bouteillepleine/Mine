@@ -1,28 +1,24 @@
-name: OnePlus_13R
+name: OnePlus 13R Kernel Compilation
 on:
   workflow_dispatch:
   schedule:
-    
+    - cron: '0 16 * * *' 
 env:
-  RETENTION_COUNT: 3  # Reduced from 7 to 3
   CPU: 'sm8650'
-  FEIL_MODEL: 'oneplus_13r'
-  CPUD_CODE: 'pineapple'
+  FEIL: 'oneplus_13r'
+  CPUD: 'pineapple'
   ANDROID_VERSION: 'android14'
   KERNEL_VERSION: '6.1'
-  KERNEL_NAME: '-11-o-ga7b5daa5t1b5'
-  KERNELSU_VARIANT: 'SukiSU-Ultra'
-  KERNELSU_VERSION: 'main'
-  SUSFS_ENABLED: 'enabled'
-  VFS_PATCH_ENABLED: 'enabled'
+  BUILD_METHOD: 'gki'
+  RETENTION_COUNT: 3
   WORKSPACE_DIR: 'kernel_workspace'
-  BUILD_LOG: 'build.log'
+  KERNEL_NAME: ''
 
 jobs:
   build:
     runs-on: ubuntu-latest
     outputs:
-      ksuver: ${{ steps.ksu_version.outputs.ksuver }}
+      ksuver: ${{ steps.ksuver.outputs.value }}
     steps:
       - name: Maximize Build Space
         uses: easimon/maximize-build-space@master
@@ -35,113 +31,108 @@ jobs:
           remove-haskell: 'true'
           remove-codeql: 'true'
 
-      - name: Configure Environment
+      - name: Configure Git Information
         run: |
           git config --global user.name "0+builder"
           git config --global user.email "0+builder@yahoo.com"
-          
-          mkdir -p ${{ env.WORKSPACE_DIR }}
-      - name: Set Dependency Cache
-        id: apt-cache
-        uses: actions/cache@v3
-        with:
-          path: /var/cache/apt/archives
-          key: ${{ runner.os }}-apt-${{ hashFiles('**/setup-requirements.txt') }}
-          restore-keys: |
-            ${{ runner.os }}-apt-
+
       - name: Install Dependencies
         run: |
           sudo apt update && sudo apt upgrade -y
           sudo apt install -y python3 git curl
-      - name: Install and Configure Repo Tool
+
+      - name: Display Selected Input Parameters (Debug)
+        run: |
+          echo "CPU: ${{ env.CPU }}"
+          echo "Configuration File: ${{ env.FEIL }}"
+          echo "Processor Codename: ${{ env.CPUD }}"
+          echo "Android Version: ${{ env.ANDROID_VERSION }}"
+          echo "Kernel Version: ${{ env.KERNEL_VERSION }}"
+          echo "Build Method: ${{ env.BUILD_METHOD }}"
+
+      - name: Install Repo Tool
         run: |
           curl https://storage.googleapis.com/git-repo-downloads/repo > ~/repo
           chmod a+x ~/repo
           sudo mv ~/repo /usr/local/bin/repo
-      - name: Initialize Repository and Sync
-        working-directory: ${{ env.WORKSPACE_DIR }}
+
+      - name: Initialize Repo and Sync Source Code
         run: |
-          repo init -u https://github.com/OnePlusOSS/kernel_manifest.git -b oneplus/${{ env.CPU }} -m ${{ env.FEIL_MODEL }}.xml --depth=1
+          mkdir kernel_workspace && cd kernel_workspace
+          repo init -u https://github.com/OnePlusOSS/kernel_manifest.git -b refs/heads/oneplus/${{ env.CPU }} -m ${{ env.FEIL }}.xml --depth=1
           repo sync
-          
-          find kernel_platform -name "abi_gki_protected_exports_*" -delete || echo "No protected exports found!"
-          
-          for script_path in kernel_platform/common/scripts/setlocalversion kernel_platform/msm-kernel/scripts/setlocalversion kernel_platform/external/dtc/scripts/setlocalversion; do
-            if [ -f "$script_path" ]; then
-              sed -i 's/ -dirty//g' "$script_path"
-            fi
-          done
-      
-      - name: Set KernelSU Branch
-        id: setup_branch
-        run: |
-          if [[ "${{ env.KERNELSU_VARIANT }}" == "SukiSU-Ultra" && "${{ env.KERNELSU_VERSION }}" == "main" ]]; then
-            echo "BRANCH=-s susfs-dev" >> $GITHUB_ENV
-          else
-            echo "BRANCH=" >> $GITHUB_ENV
+          if [ -e kernel_platform/common/BUILD.bazel ]; then
+            sed -i '/^[[:space:]]*"protected_exports_list"[[:space:]]*:[[:space:]]*"android\/abi_gki_protected_exports_aarch64",$/d' kernel_platform/common/BUILD.bazel
           fi
-      - name: Add SukiSU-Ultra
-        id: ksu_version
-        working-directory: ${{ env.WORKSPACE_DIR }}/kernel_platform
+          if [ -e kernel_platform/msm-kernel/BUILD.bazel ]; then
+            sed -i '/^[[:space:]]*"protected_exports_list"[[:space:]]*:[[:space:]]*"android\/abi_gki_protected_exports_aarch64",$/d' kernel_platform/msm-kernel/BUILD.bazel
+          fi
+          rm kernel_platform/common/android/abi_gki_protected_exports_* || echo "No protected exports!"
+          rm kernel_platform/msm-kernel/android/abi_gki_protected_exports_* || echo "No protected exports!"
+
+      - name: Force Remove -dirty Suffix
         run: |
-          curl -LSs "https://raw.githubusercontent.com/ShirkNeko/SukiSU-Ultra/refs/heads/main/kernel/setup.sh" | bash ${{ env.BRANCH }}
-          
+          cd kernel_workspace/kernel_platform
+          sed -i 's/ -dirty//g' common/scripts/setlocalversion
+          sed -i 's/ -dirty//g' msm-kernel/scripts/setlocalversion
+          sed -i 's/ -dirty//g' external/dtc/scripts/setlocalversion
+          sed -i '$i res=$(echo "$res" | sed '\''s/-dirty//g'\'')' common/scripts/setlocalversion
+          git add -A
+          git commit -m "Force remove -dirty suffix from kernel version"
+
+      - name: Add SukiSU Ultra
+        run: |
+          cd kernel_workspace/kernel_platform
+          curl -LSs "https://raw.githubusercontent.com/SukiSU-Ultra/SukiSU-Ultra/main/kernel/setup.sh" | bash -s susfs-main
           cd ./KernelSU
           KSU_VERSION=$(expr $(/usr/bin/git rev-list --count main) "+" 10606)
           echo "KSUVER=$KSU_VERSION" >> $GITHUB_ENV
-          echo "ksuver=$KSU_VERSION" >> $GITHUB_OUTPUT
-          
-          sed -i "s/DKSU_VERSION=12800/DKSU_VERSION=$KSU_VERSION/" kernel/Makefile
-      - name: Prepare and Apply Patches
-        working-directory: ${{ env.WORKSPACE_DIR }}
+          export KSU_VERSION=$KSU_VERSION
+          sed -i "s/DKSU_VERSION=12800/DKSU_VERSION=${KSU_VERSION}/" kernel/Makefile
+
+      - name: Apply SukiSU Ultra Patch
         run: |
+          cd kernel_workspace
           git clone https://gitlab.com/simonpunk/susfs4ksu.git -b gki-${{ env.ANDROID_VERSION }}-${{ env.KERNEL_VERSION }}
           git clone https://github.com/ShirkNeko/SukiSU_patch.git
-          
           cd kernel_platform
-          
+          echo "Applying susfs patch to kernel"
           cp ../susfs4ksu/kernel_patches/50_add_susfs_in_gki-${{ env.ANDROID_VERSION }}-${{ env.KERNEL_VERSION }}.patch ./common/
-          cp -r ../susfs4ksu/kernel_patches/fs/* ./common/fs/
-          cp -r ../susfs4ksu/kernel_patches/include/linux/* ./common/include/linux/
-          
+          cp ../susfs4ksu/kernel_patches/fs/* ./common/fs/
+          cp ../susfs4ksu/kernel_patches/include/linux/* ./common/include/linux/
+
           cd ./common
-          if ! patch --dry-run -p1 < 50_add_susfs_in_gki-${{ env.ANDROID_VERSION }}-${{ env.KERNEL_VERSION }}.patch; then
-            echo "::error::Dry-run failed for SUSFS GKI patch"
-            exit 1
-          fi
-          if ! patch -p1 < 50_add_susfs_in_gki-${{ env.ANDROID_VERSION }}-${{ env.KERNEL_VERSION }}.patch; then
-            echo "::error::Failed to apply SUSFS GKI patch"
-            exit 1
-          fi
-          
-          cp ../../SukiSU_patch/69_hide_stuff.patch ./
-          if ! patch --dry-run -p1 -F 3 < 69_hide_stuff.patch; then
-            echo "::error::Dry-run failed for 69_hide_stuff.patch"
-            exit 1
-          fi
-          if ! patch -p1 -F 3 < 69_hide_stuff.patch; then
-            echo "::error::Failed to apply 69_hide_stuff.patch"
-            exit 1
-          fi
-          
-          cp ../../SukiSU_patch/hooks/new_hooks.patch ./
-          if ! patch --dry-run -p1 -F 3 < new_hooks.patch; then
-            echo "::error::Dry-run failed for new_hooks.patch"
-            exit 1
-          fi
-          if ! patch -p1 -F 3 < new_hooks.patch; then
-            echo "::error::Failed to apply new_hooks.patch"
-            exit 1
-          fi
-      - name: Configure Kernel Options
-        working-directory: ${{ env.WORKSPACE_DIR }}/kernel_platform
+          patch -p1 < 50_add_susfs_in_gki-${{ env.ANDROID_VERSION }}-${{ env.KERNEL_VERSION }}.patch || true
+          echo "Completed"
+
+      - name: Apply Hide Patch
         run: |
-          CONFIG_FILE="./common/arch/arm64/configs/gki_defconfig"
-          DEFCONFIG="$CONFIG_FILE"
+          cd kernel_workspace/kernel_platform/common
+          cp ../../SukiSU_patch/69_hide_stuff.patch ./
+          echo "Applying hide application patch"
+          patch -p1 -F 3 < 69_hide_stuff.patch
+
+      - name: Apply VFS Patch
+        run: |
+          cd kernel_workspace/kernel_platform/common
+          cp ../../SukiSU_patch/hooks/syscall_hooks.patch ./
+          echo "Applying VFS patch"
+          patch -p1 -F 3 < syscall_hooks.patch
+          echo "VFS patch completed"
+
+      - name: Add Configuration Information
+        run: |
+          cd kernel_workspace/kernel_platform
+          CONFIG_FILE=./common/arch/arm64/configs/gki_defconfig
+          KERNEL_VERSION="${{ env.KERNEL_VERSION }}"
+
+          # SukiSU Ultra config
           echo "CONFIG_KSU=y" >> "$CONFIG_FILE"
           echo "CONFIG_KPM=y" >> "$CONFIG_FILE"
           echo "CONFIG_KSU_SUSFS_SUS_SU=n" >> "$CONFIG_FILE"
           echo "CONFIG_KSU_MANUAL_HOOK=y" >> "$CONFIG_FILE"
+
+          # SUSFS config
           echo "CONFIG_KSU_SUSFS=y" >> "$CONFIG_FILE"
           echo "CONFIG_KSU_SUSFS_HAS_MAGIC_MOUNT=y" >> "$CONFIG_FILE"
           echo "CONFIG_KSU_SUSFS_SUS_PATH=y" >> "$CONFIG_FILE"
@@ -157,95 +148,53 @@ jobs:
           echo "CONFIG_KSU_SUSFS_HIDE_KSU_SUSFS_SYMBOLS=y" >> "$CONFIG_FILE"
           echo "CONFIG_KSU_SUSFS_SPOOF_CMDLINE_OR_BOOTCONFIG=y" >> "$CONFIG_FILE"
           echo "CONFIG_KSU_SUSFS_OPEN_REDIRECT=y" >> "$CONFIG_FILE"
-          echo "CONFIG_TMPFS_XATTR=y" >> "$CONFIG_FILE"
-          echo "CONFIG_TMPFS_POSIX_ACL=y" >> "$CONFIG_FILE"
-          echo "CONFIG_TCP_CONG_ADVANCED=y" >> "$CONFIG_FILE"
-          echo "CONFIG_TCP_CONG_BBR=y" >> "$CONFIG_FILE"
-          echo "CONFIG_DEFAULT_BBR=y" >> "$CONFIG_FILE"
-          echo "CONFIG_TCP_CONG_BIC=n" >> "$CONFIG_FILE"
-          echo "CONFIG_TCP_CONG_WESTWOOD=n" >> "$CONFIG_FILE"
-          echo "CONFIG_TCP_CONG_HTCP=n" >> "$CONFIG_FILE"
-          echo "CONFIG_TCP_CONG_CDG=y" >> "$CONFIG_FILE"
-          echo "CONFIG_TCP_CONG_DCTCP=y" >> "$CONFIG_FILE"
-          echo "CONFIG_NET_SCH_FQ=y" >> "$CONFIG_FILE"
-          echo "CONFIG_NET_SCH_FQ_CODEL=y" >> "$CONFIG_FILE"
-          echo "CONFIG_NET_SCH_SFQ=y" >> "$CONFIG_FILE"
-          echo "CONFIG_NET_SCH_TBF=y" >> "$CONFIG_FILE"
-          echo "CONFIG_IP_ECN=y" >> "$CONFIG_FILE"
-          echo "CONFIG_TCP_ECN=y" >> "$CONFIG_FILE"
-          echo "CONFIG_IPV6_ECN=y" >> "$CONFIG_FILE"
-          echo "CONFIG_IP_NF_TARGET_ECN=y" >> "$CONFIG_FILE"
-          echo "CONFIG_TCP_FASTOPEN=y" >> "$CONFIG_FILE"
-          echo "CONFIG_IP_NF_TARGET_TTL=y" >> "$CONFIG_FILE"
-          echo "CONFIG_IP6_NF_TARGET_HL=y" >> "$CONFIG_FILE"
-          echo "CONFIG_IP6_NF_MATCH_HL=y" >> "$CONFIG_FILE"
-          echo "CONFIG_EXT4_INODE_TEST=n" >> "$CONFIG_FILE"
-          echo "CONFIG_F_FS_IPC_LOG=n" >> "$CONFIG_FILE"
-          echo "CONFIG_HUNG_TASK_ENH=n" >> "$CONFIG_FILE"
-          echo "CONFIG_IIO_TEST_FORMAT=n" >> "$CONFIG_FILE"
-          echo "CONFIG_OPLUS_BSP_SIGKILL_DIAGNOSIS=n" >> "$CONFIG_FILE"
-          echo "CONFIG_OPLUS_LOCK_TORTURE=n" >> "$CONFIG_FILE"
-          echo "CONFIG_SOC_TOPOLOGY_TEST=n" >> "$CONFIG_FILE"
-          echo "CONFIG_SOC_UTILS_TEST=n" >> "$CONFIG_FILE"
-          echo "CONFIG_DEBUG_KERNEL=n" >> "$CONFIG_FILE"
-          echo "CONFIG_DYNAMIC_DEBUG=n" >> "$CONFIG_FILE"
-          echo "CONFIG_DEBUG_INFO=n" >> "$CONFIG_FILE"
-          echo "CONFIG_BOEFFLA_WL_BLOCKER=y" >> "$DEFCONFIG"
-          echo "CONFIG_WQ_POWER_EFFICIENT_DEFAULT=y" >> "$DEFCONFIG"
-          echo "CONFIG_CC_OPTIMIZE_FOR_PERFORMANCE=y" >> "$DEFCONFIG"
-          sed -i "s/CONFIG_PRINTK_TIME=y/CONFIG_PRINTK_TIME=n/" "$DEFCONFIG"
-          sed -i "s/CONFIG_PRINTK_CALLER=y/CONFIG_PRINTK_CALLER=n/" "$DEFCONFIG"
+
+          # ThinLTO config
+          echo "CONFIG_THINLTO=y" >> "$CONFIG_FILE"
+
+          # Remove check_defconfig
           sed -i 's/check_defconfig//' ./common/build.config.gki
-          cd common
-          git add -A && git commit -a -m "Add SUSFS configuration" || echo "No changes to commit"
-      - name: Update Kconfig for blacklisted modules
-        run: |
-          find kernel_workspace/kernel_platform -name Kconfig -exec sed -i \
-            -e 's/CONFIG_EXT4_INODE_TEST=[ym]/CONFIG_EXT4_INODE_TEST=n/' \
-            -e 's/CONFIG_F_FS_IPC_LOG=[ym]/CONFIG_F_FS_IPC_LOG=n/' \
-            -e 's/CONFIG_HUNG_TASK_ENH=[ym]/CONFIG_HUNG_TASK_ENH=n/' \
-            -e 's/CONFIG_IIO_TEST_FORMAT=[ym]/CONFIG_IIO_TEST_FORMAT=n/' \
-            -e 's/CONFIG_OPLUS_BSP_SIGKILL_DIAGNOSIS=[ym]/CONFIG_OPLUS_BSP_SIGKILL_DIAGNOSIS=n/' \
-            -e 's/CONFIG_OPLUS_LOCK_TORTURE=[ym]/CONFIG_OPLUS_LOCK_TORTURE=n/' \
-            -e 's/CONFIG_SOC_TOPOLOGY_TEST=[ym]/CONFIG_SOC_TOPOLOGY_TEST=n/' \
-            -e 's/CONFIG_SOC_UTILS_TEST=[ym]/CONFIG_SOC_UTILS_TEST=n/' {} \;
+
       - name: Add Build Name
         working-directory: ${{ env.WORKSPACE_DIR }}/kernel_platform
         run: |
           sed -i "/stable_scmversion_cmd/s/-maybe-dirty//g" ./build/kernel/kleaf/impl/stamp.bzl
           sed -i 's|echo "\$res"|echo "'"$(echo "${{ env.KERNEL_NAME }}" | sed 's/[\&/]/\\&/g')"'"|g' ./common/scripts/setlocalversion
-           
+
       - name: Build Kernel
-        working-directory: ${{ env.WORKSPACE_DIR }}
         run: |
-          if [[ "${{ env.CPU }}" == "sm8650" || "${{ env.CPU }}" == "sm8750" ]]; then
-            ./kernel_platform/build_with_bazel.py -t ${{ env.CPUD_CODE }} gki --action_env=KSU_VERSION --lto=thin >> ${{ env.BUILD_LOG }} 2>&1
-          else
-            LTO=thin ./kernel_platform/oplus/build/oplus_build_kernel.sh ${{ env.CPUD_CODE }} gki >> ${{ env.BUILD_LOG }} 2>&1
-          fi
-          if [ $? -ne 0 ]; then
-            echo "::error::Kernel build failed"
-            cat ${{ env.BUILD_LOG }}
-            exit 1
-          fi
-      - name: Clone AnyKernel3
+          cd kernel_workspace
+          ./kernel_platform/build_with_bazel.py -t ${{ env.CPUD }} ${{ env.BUILD_METHOD }}
+
+      - name: Create AnyKernel3
         run: |
-          git clone https://github.com/Kernel-SU/AnyKernel3 --depth=1
+          git clone https://github.com/Numbersf/AnyKernel3 --depth=1
           rm -rf ./AnyKernel3/.git
-          dir1="./kernel_workspace/kernel_platform/out/msm-kernel-${{ env.CPUD_CODE }}-gki/dist/"
-          dir2="./kernel_workspace/kernel_platform/common/out/arch/arm64/boot/"
-          dir3="./kernel_workspace/kernel_platform/out/msm-${{ env.CPUD_CODE }}-${{ env.CPUD_CODE }}-gki/dist/"
+
+          dir1="kernel_workspace/kernel_platform/out/msm-kernel-${{ env.CPUD }}-${{ env.BUILD_METHOD }}/dist/"
+          dir2="kernel_workspace/kernel_platform/bazel-out/k8-fastbuild/bin/msm-kernel/${{ env.CPUD }}_gki_kbuild_mixed_tree/"
+          dir3="kernel_workspace/kernel_platform/out/msm-${{ env.CPUD }}-${{ env.CPUD }}-${{ env.BUILD_METHOD }}/dist/"
+          dir4="kernel_workspace/kernel_platform/out/msm-kernel-${{ env.CPUD }}-${{ env.BUILD_METHOD }}/gki_kernel/common/arch/arm64/boot/"
+          dir5="kernel_workspace/kernel_platform/out/msm-${{ env.CPUD }}-${{ env.CPUD }}-${{ env.BUILD_METHOD }}/gki_kernel/common/arch/arm64/boot/"
           target1="./AnyKernel3/"
-          target2="./kernel_workspace/init_boot_Image.img"
+          target2="./kernel_workspace/kernel"
+
+          # Find Image file
           if find "$dir1" -name "Image" | grep -q "Image"; then
             image_path="$dir1"Image
           elif find "$dir2" -name "Image" | grep -q "Image"; then
             image_path="$dir2"Image
           elif find "$dir3" -name "Image" | grep -q "Image"; then
             image_path="$dir3"Image
+          elif find "$dir4" -name "Image" | grep -q "Image"; then
+            image_path="$dir4"Image
+          elif find "$dir5" -name "Image" | grep -q "Image"; then
+            image_path="$dir5"Image
           else
             image_path=$(find "./kernel_workspace/kernel_platform/common/out/" -name "Image" | head -n 1)
           fi
+
+          # Copy Image
           if [ -n "$image_path" ] && [ -f "$image_path" ]; then
             mkdir -p "$dir1"
             if [ "$(realpath "$image_path")" != "$(realpath "$dir1"Image)" ]; then
@@ -253,13 +202,15 @@ jobs:
             else
               echo "Source and destination are the same, skipping copy"
             fi
+            cp "$dir1"Image ./AnyKernel3/Image
           else
             echo "Image file not found, build may have failed"
             exit 1
           fi
+
       - name: Apply patch_linux and Replace Kernel
         run: |
-          cd kernel_workspace/kernel_platform/out/msm-kernel-${{ env.CPUD_CODE }}-gki/dist
+          cd kernel_workspace/kernel_platform/out/msm-kernel-${{ env.CPUD }}-gki/dist
           curl -LO https://github.com/ShirkNeko/SukiSU_KernelPatch_patch/releases/download/0.11-beta/patch_linux
           chmod +x patch_linux
           ./patch_linux
@@ -267,25 +218,41 @@ jobs:
           mv oImage Image
           cp Image $GITHUB_WORKSPACE/AnyKernel3/Image
           cp Image $GITHUB_WORKSPACE/kernel_workspace/init_boot_Image.img
+
       - name: Package AnyKernel3 (ZIP)
         run: |
           cd $GITHUB_WORKSPACE/AnyKernel3
-          zip -r ../AnyKernel3_KernelSU_${{ env.KSUVER }}_${{ env.FEIL_MODEL }}.zip ./*
+          zip -r ../AnyKernel3_KernelSU_${{ env.KSUVER }}_${{ env.FEIL }}.zip ./*
           cd ..
+
       - name: Package Original Image (ZIP)
         run: |
           cd $GITHUB_WORKSPACE/kernel_workspace
-          zip -r ../Image_KernelSU_${{ env.KSUVER }}_${{ env.FEIL_MODEL }}.zip ./init_boot_Image.img
-      - name: Upload ZIP Artifacts
+          zip -r ../Image_KernelSU_${{ env.KSUVER }}_${{ env.FEIL }}.zip ./init_boot_Image.img      
+
+      - name: Set Suffix
+        id: suffix
+        run: |
+          echo "value=_KPM_VFS" >> $GITHUB_OUTPUT
+
+      - name: Remove _uv Suffix from FEIL
+        id: feil_clean
+        run: |
+          clean_feil="${{ env.FEIL }}"
+          clean_feil="${clean_feil%_v}"
+          clean_feil="${clean_feil%_u}"
+          echo "value=$clean_feil" >> $GITHUB_OUTPUT
+
+      - name: Upload AnyKernel3 ZIP Artifact
         uses: actions/upload-artifact@v4
         with:
           name: Kernel_ZIP_Artifacts
           path: |
             *.zip
-          retention-days: 1
-      - name: Upload Build Log
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: build-log
-          path: ${{ env.WORKSPACE_DIR }}/${{ env.BUILD_LOG }} 
+          retention-days: 3
+
+      - name: Record KSU Version
+        id: ksuver
+        run: |
+          echo "value=${KSUVER}" >> $GITHUB_OUTPUT
+  
