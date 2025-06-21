@@ -85,7 +85,11 @@ jobs:
           echo "Cloning AnyKernel3 and other dependencies..."
           
           ANYKERNEL_BRANCH="gki-2.0"
-          SUSFS_BRANCH="gki-${{ inputs.android_version }}-${{ inputs.kernel_version }}"
+          if [[ -z "${{ inputs.susfs_branch }}" ]]; then
+            SUSFS_BRANCH="gki-${{ inputs.android_version }}-${{ inputs.kernel_version }}"
+          else
+            SUSFS_BRANCH="${{ inputs.susfs_branch }}"
+          fi
           
           # Debug print the branches
           echo "Using branch for AnyKernel3: $ANYKERNEL_BRANCH"
@@ -306,7 +310,7 @@ jobs:
           sed -i 's/check_defconfig//' ./common/build.config.gki
           # For Old setlocalversion Script
           tac ./common/scripts/setlocalversion | sed '0,/echo "\$res"/s//res=\$\(echo \$res \| cut -d- -f1-2\)\;echo "\$res"\;/' | tac > ./common/scripts/setlocalversion.tmp && mv ./common/scripts/setlocalversion.tmp ./common/scripts/setlocalversion
-          tac ./msm-kernel/scripts/setlocalversion | sed '0,/echo "\$res"/s//res=\$\(echo \$res \| cut -d- -f1-2\)\;echo "\$res"\;/' | tac > ./msm-kernel/scripts/setlocalversion.tmp && mv ./msm-kernel/scripts/setlocalversion.tmp ./msm-kernel/scripts/setlocalversion
+          tac ./msm-kernel/scripts/setlocalversion | sed '0,/echo "\$res"/s//res=\$\(echo \$res \| cut -d- -f1-2\\;echo "\$res"\;/' | tac > ./msm-kernel/scripts/setlocalversion.tmp && mv ./msm-kernel/scripts/setlocalversion.tmp ./msm-kernel/scripts/setlocalversion
           tac ./external/dtc/scripts/setlocalversion | sed '0,/echo "\$res"/s//res=\$\(echo \$res \| cut -d- -f1-2\)\;echo "\$res"\;/' | tac > ./external/dtc/scripts/setlocalversion.tmp && mv ./external/dtc/scripts/setlocalversion.tmp ./external/dtc/scripts/setlocalversion
           # For New setlocalversion Script
           sed -i 's/echo "${KERNELVERSION}${file_localversion}${config_localversion}${LOCALVERSION}${scm_version}"/echo "${KERNELVERSION}-${{ inputs.android_version }}-OP-Wild"/' ./common/scripts/setlocalversion
@@ -367,8 +371,6 @@ jobs:
             ./kernel_platform/oplus/bazel/oplus_modules_variant.sh ${{ inputs.soc }} "$BUILD_TYPE" ""
             ./kernel_platform/build_with_bazel.py -t ${{ inputs.soc }} $BUILD_TYPE "${BAZEL_ARGS[@]}" -o "$(pwd)/out"
           else
-            # cd ./kernel_platform/common/
-            # make -j$(nproc --all) LLVM=1 ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- CROSS_COMPILE_ARM32=arm-linux-gnuabeihf- CC=/home/runner/work/OnePlus_KernelSU_SUSFS/OnePlus_KernelSU_SUSFS/OP11/kernel_platform/prebuilts-master/clang/host/linux-x86/clang-r450784e/bin/clang LD=/home/runner/work/OnePlus_KernelSU_SUSFS/OnePlus_KernelSU_SUSFS/OP11/kernel_platform/prebuilts-master/clang/host/linux-x86/clang-r450784e/bin/ld.lld HOSTCC=/home/runner/work/OnePlus_KernelSU_SUSFS/OnePlus_KernelSU_SUSFS/OP11/kernel_platform/prebuilts-master/clang/host/linux-x86/clang-r450784e/bin/clang HOSTLD=/home/runner/work/OnePlus_KernelSU_SUSFS/OnePlus_KernelSU_SUSFS/OP11/kernel_platform/prebuilts-master/clang/host/linux-x86/clang-r450784e/bin/ld.lld O=/home/runner/work/OnePlus_KernelSU_SUSFS/OnePlus_KernelSU_SUSFS/OP11/kernel_platform/out KCFLAGS+=-Wno-error gki_defconfig all 2>&1 | tee build_$(date +"%Y_%m_%d_%H_%M_%S").log
             LTO=thin ./kernel_platform/oplus/build/oplus_build_kernel.sh ${{ inputs.soc }} "$BUILD_TYPE"
           fi
 
@@ -392,15 +394,5 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: kernel-${{ env.CONFIG }}
-          path: "./AnyKernel3/*"
-
-      - name: Upload Build Logs
-        uses: actions/upload-artifact@v4
-        if: ${{ always() && failure() }}
-        with:
-          name: build-logs
           path: |
-            ${{ env.CONFIG }}/out/*.log
-            ${{ env.CONFIG }}/kernel_platform/**/*.rej
-          retention-days: 2
-          if-no-files-found: error
+            *.zip
