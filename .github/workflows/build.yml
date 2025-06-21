@@ -85,11 +85,7 @@ jobs:
           echo "Cloning AnyKernel3 and other dependencies..."
           
           ANYKERNEL_BRANCH="gki-2.0"
-          if [[ -z "${{ inputs.susfs_branch }}" ]]; then
-            SUSFS_BRANCH="gki-${{ inputs.android_version }}-${{ inputs.kernel_version }}"
-          else
-            SUSFS_BRANCH="${{ inputs.susfs_branch }}"
-          fi
+          SUSFS_BRANCH="gki-${{ inputs.android_version }}-${{ inputs.kernel_version }}"
           
           # Debug print the branches
           echo "Using branch for AnyKernel3: $ANYKERNEL_BRANCH"
@@ -260,8 +256,8 @@ jobs:
           echo "CONFIG_TCP_CONG_HTCP=n" >> ./common/arch/arm64/configs/gki_defconfig
           
           echo "CONFIG_NET_SCH_FQ=y" >> ./common/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_NET_SCH_FQ_CODEL=y" >> ./common/arch/arm64/configs/gki_defconfig
-
+          echo "CONFIG_NET_SCH_FQ_CODEL=y" >> ./common/arch/arm64/configs/gki_defconfig      
+      
       - name: Add TTL Target Support
         run: |
           echo "Changing to configuration directory: $CONFIG..."
@@ -283,103 +279,8 @@ jobs:
 
           echo "CONFIG_DEBUG_KERNEL=n" >> ./common/arch/arm64/configs/gki_defconfig
           echo "CONFIG_DYNAMIC_DEBUG=n" >> ./common/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_DEBUG_INFO=n" >> ./common/arch/arm64/configs/gki_defconfig        
-          
-      - name: 🔧 Add sched_ext
-        run: |
-         if [ "${{ inputs.soc }}" == "sun" ]; then
-         cd "$CONFIG/kernel_platform"
-         git clone https://github.com/HanKuCha/sched_ext.git
-         cp -r ./sched_ext/* ./common/kernel/sched
-         rm -rf ./sched_ext/.git
-         cd common/kernel/sched
-         fi
-      - name: Disable test and debug configurations
-        run: |
-          if [ -z "$CONFIG" ]; then
-            echo "Error: CONFIG environment variable is not set."
-            exit 1
-          fi
-          echo "Changing to configuration directory: $CONFIG..."
-          cd "$CONFIG/kernel_platform" || {
-            echo "Error: Failed to change to $CONFIG/kernel_platform."
-            exit 1
-          }
-          
-          CONFIG_FILE="./common/arch/arm64/configs/gki_defconfig"
-          if [ ! -f "$CONFIG_FILE" ]; then
-            echo "Error: $CONFIG_FILE not found. Ensure kernel source is properly set up."
-            exit 1
-          fi          
-          
-          if [ "${{ inputs.soc }}" == "pineapple" ]; then
-            echo "Disabling test and debug configurations in $CONFIG_FILE..." > config_changes.log
-            for config in \
-              "CONFIG_REGMAP_KUNIT=m/CONFIG_REGMAP_KUNIT=n" \
-              "CONFIG_INPUT_KUNIT_TEST=m/CONFIG_INPUT_KUNIT_TEST=n" \
-              "CONFIG_SND_SOC_TOPOLOGY_KUNIT_TEST=m/CONFIG_SND_SOC_TOPOLOGY_KUNIT_TEST=n" \
-              "CONFIG_SND_SOC_UTILS_KUNIT_TEST=m/CONFIG_SND_SOC_UTILS_KUNIT_TEST=n" \
-              "CONFIG_HID_KUNIT_TEST=m/CONFIG_HID_KUNIT_TEST=n" \
-              "CONFIG_RTC_LIB_KUNIT_TEST=m/CONFIG_RTC_LIB_KUNIT_TEST=n" \
-              "CONFIG_CLK_KUNIT_TEST=m/CONFIG_CLK_KUNIT_TEST=n" \
-              "CONFIG_CLK_GATE_KUNIT_TEST=m/CONFIG_CLK_GATE_KUNIT_TEST=n" \
-              "CONFIG_IIO_FORMAT_KUNIT_TEST=m/CONFIG_IIO_FORMAT_KUNIT_TEST=n" \
-              "CONFIG_EXT4_KUNIT_TESTS=m/CONFIG_EXT4_KUNIT_TESTS=n" \
-              "CONFIG_FAT_KUNIT_TEST=m/CONFIG_FAT_KUNIT_TEST=n"; do
-              pattern="${config%%/*}"
-              if grep -q "$pattern" "$CONFIG_FILE"; then
-                sed -i "s|$pattern|${config#*/}|g" "$CONFIG_FILE" || echo "Warning: Failed to modify $pattern in $CONFIG_FILE" >> config_changes.log
-                echo "Disabled $pattern" >> config_changes.log
-              else
-                echo "Module $pattern not found in $CONFIG_FILE, skipping." >> config_changes.log
-              fi
-            done
-            
-            for config in \
-              "CONFIG_EXT4_INODE_TEST=n" \
-              "CONFIG_F_FS_IPC_LOG=n" \
-              "CONFIG_HUNG_TASK_ENH=n" \
-              "CONFIG_IIO_TEST_FORMAT=n" \
-              "CONFIG_OPLUS_BSP_SIGKILL_DIAGNOSIS=n" \
-              "CONFIG_OPLUS_LOCK_TORTURE=n" \
-              "CONFIG_SOC_TOPOLOGY_TEST=n" \
-              "CONFIG_SOC_UTILS_TEST=n" \
-              "CONFIG_DEBUG_KERNEL=n" \
-              "CONFIG_DYNAMIC_DEBUG=n" \
-              "CONFIG_DEBUG_INFO=n"; do
-              if ! grep -q "${config%=*}" "$CONFIG_FILE"; then
-                echo "$config" >> "$CONFIG_FILE"
-                echo "Added $config to $CONFIG_FILE" >> config_changes.log
-              else
-                echo "${config%=*} already set in $CONFIG_FILE, skipping." >> config_changes.log
-              fi
-            done
-            echo "Configuration changes logged to config_changes.log"
-            
-            echo "Searching for Kconfig files..."
-            KCONFIG_FILES=$(find ./common/fs ./common/drivers -name Kconfig 2>/dev/null)
-            if [ -z "$KCONFIG_FILES" ]; then
-              echo "No Kconfig files found in ./common/fs or ./common/drivers. Skipping Kconfig updates."
-            else
-              echo "Found Kconfig files:"
-              echo "$KCONFIG_FILES"
-              set -x
-              find ./common/fs ./common/drivers -name Kconfig -exec sed -i \
-                -e 's/CONFIG_EXT4_INODE_TEST=[ym]/CONFIG_EXT4_INODE_TEST=n/' \
-                -e 's/CONFIG_F_FS_IPC_LOG=[ym]/CONFIG_F_FS_IPC_LOG=n/' \
-                -e 's/CONFIG_HUNG_TASK_ENH=[ym]/CONFIG_HUNG_TASK_ENH=n/' \
-                -e 's/CONFIG_IIO_TEST_FORMAT=[ym]/CONFIG_IIO_TEST_FORMAT=n/' \
-                -e 's/CONFIG_OPLUS_BSP_SIGKILL_DIAGNOSIS=[ym]/CONFIG_OPLUS_BSP_SIGKILL_DIAGNOSIS=n/' \
-                -e 's/CONFIG_OPLUS_LOCK_TORTURE=[ym]/CONFIG_OPLUS_LOCK_TORTURE=n/' \
-                -e 's/CONFIG_SOC_TOPOLOGY_TEST=[ym]/CONFIG_SOC_TOPOLOGY_TEST=n/' \
-                -e 's/CONFIG_SOC_UTILS_TEST=[ym]/CONFIG_SOC_UTILS_TEST=n/' {} \; || true
-              set +x
-              echo "Verifying Kconfig changes..."
-              if ! grep -r -q "CONFIG_EXT4_INODE_TEST=n" ./common/fs ./common/drivers; then
-                echo "Warning: CONFIG_EXT4_INODE_TEST=n not found in any Kconfig files."
-              fi
-            fi
-          fi
+          echo "CONFIG_DEBUG_INFO=n" >> ./common/arch/arm64/configs/gki_defconfig
+      
       - name: Run sed and perl Commands
         run: |
           echo "Changing to configuration directory: $CONFIG..."
@@ -393,9 +294,17 @@ jobs:
           
           # Run sed commands for modifications
           sed -i 's/check_defconfig//' ./common/build.config.gki
-          sed -i '$s|echo "\$res"|echo "\$res"|' ./common/scripts/setlocalversion
-          sed -i '$s|echo "\$res"|echo "\$res"|' ./msm-kernel/scripts/setlocalversion
-          sed -i '$s|echo "\$res"|echo "\$res"|' ./external/dtc/scripts/setlocalversion
+          # For Old setlocalversion Script
+          tac ./common/scripts/setlocalversion | sed '0,/echo "\$res"/s//res=\$\(echo \$res \| cut -d- -f1-2\)\;echo "\$res"\;/' | tac > ./common/scripts/setlocalversion.tmp && mv ./common/scripts/setlocalversion.tmp ./common/scripts/setlocalversion
+          tac ./msm-kernel/scripts/setlocalversion | sed '0,/echo "\$res"/s//res=\$\(echo \$res \| cut -d- -f1-2\)\;echo "\$res"\;/' | tac > ./msm-kernel/scripts/setlocalversion.tmp && mv ./msm-kernel/scripts/setlocalversion.tmp ./msm-kernel/scripts/setlocalversion
+          tac ./external/dtc/scripts/setlocalversion | sed '0,/echo "\$res"/s//res=\$\(echo \$res \| cut -d- -f1-2\)\;echo "\$res"\;/' | tac > ./external/dtc/scripts/setlocalversion.tmp && mv ./external/dtc/scripts/setlocalversion.tmp ./external/dtc/scripts/setlocalversion
+          # For New setlocalversion Script
+          sed -i 's/echo "${KERNELVERSION}${file_localversion}${config_localversion}${LOCALVERSION}${scm_version}"/echo "${KERNELVERSION}-${{ inputs.android_version }}-OP-Wild"/' ./common/scripts/setlocalversion
+          sed -i 's/echo "${KERNELVERSION}${file_localversion}${config_localversion}${LOCALVERSION}${scm_version}"/echo "${KERNELVERSION}-${{ inputs.android_version }}-OP-Wild"/' ./msm-kernel/scripts/setlocalversion
+          sed -i 's/echo "${KERNELVERSION}${file_localversion}${config_localversion}${LOCALVERSION}${scm_version}"/echo "${KERNELVERSION}-${{ inputs.android_version }}-OP-Wild"/' ./external/dtc/scripts/setlocalversion
+          chmod +x ./common/scripts/setlocalversion
+          chmod +x ./msm-kernel/scripts/setlocalversion
+          chmod +x ./external/dtc/scripts/setlocalversion
           sed -i "/stable_scmversion_cmd/s/-maybe-dirty//g" ./build/kernel/kleaf/impl/stamp.bzl || echo "No stamp.bzl!"
           sed -i 's/-dirty//' ./common/scripts/setlocalversion
           sed -i 's/-dirty//' ./msm-kernel/scripts/setlocalversion
@@ -404,12 +313,12 @@ jobs:
           
           sed -i '/echo "LTO $LTO "/i export LTO=thin' ./oplus/build/oplus_setup.sh
           sed -i 's/export REPACK_IMG=true/export REPACK_IMG=false/g' ./oplus/build/oplus_setup.sh
-          
+         
           # Run perl command to modify UTS_VERSION
           DATESTR=$(date -u)
           perl -pi -e 's{UTS_VERSION="\$\(echo \$UTS_VERSION \$CONFIG_FLAGS \$TIMESTAMP \| cut -b -\$UTS_LEN\)"}{UTS_VERSION="#1 SMP PREEMPT $DATESTR"}' ./common/scripts/mkcompile_h
           perl -pi -e 's{UTS_VERSION="\$\(echo \$UTS_VERSION \$CONFIG_FLAGS \$TIMESTAMP \| cut -b -\$UTS_LEN\)"}{UTS_VERSION="#1 SMP PREEMPT $DATESTR"}' ./msm-kernel/scripts/mkcompile_h
-         
+
       - name: Build the Kernel
         run: |
           echo "Changing to configuration directory: $CONFIG..."
@@ -451,32 +360,21 @@ jobs:
             LTO=thin ./kernel_platform/oplus/build/oplus_build_kernel.sh ${{ inputs.soc }} "$BUILD_TYPE"
           fi
 
-      - name: Copy Images
+      - name: Create ZIP Files for Different Formats
         run: |
           echo "Changing to configuration directory: $CONFIG..."
           cd "$CONFIG"
           
           echo "Copying Image"
           cp ./out/dist/Image ../AnyKernel3/Image
-          if [ "${{ inputs.model }}" == "OPAce5Pro" ]; then
-            cp ./out/dist/dtbo.img ../AnyKernel3/
-            cp ./out/dist/system_dlkm.erofs.img ../AnyKernel3/system_dlkm.img
-          fi
-
-      - name: Create ZIP Files for Different Formats
-        run: |
+          
           echo "Navigating to AnyKernel3 directory..."
-          cd ./AnyKernel3
+          cd ../AnyKernel3
           
           # Zip the files in the AnyKernel3 directory with a new naming convention
-          ZIP_NAME="${{ inputs.model }}_${{ inputs.android_version }}_${{ inputs.kernel_version }}_Next_SUSFS_AnyKernel3.zip"
+          ZIP_NAME="AnyKernel3_${{ inputs.model }}_${{ inputs.android_version }}-${{ inputs.kernel_version }}_Next_${{ env.KSUVER }}_SUSFS_${{ env.SUSVER }}.zip"
           echo "Creating zip file $ZIP_NAME..."
           zip -r "../$ZIP_NAME" ./*
-          # Fengchi Patch for OPAce5Pro
-          if [ "${{ inputs.model }}" == "OPAce5Pro" ]; then
-            sed -i 's/hmbird/xxbird/g' dtbo.img
-            zip -r "../$ZIP_NAME-CN-version.zip" ./*
-          fi
 
       - name: Upload Build Artifacts
         uses: actions/upload-artifact@v4
