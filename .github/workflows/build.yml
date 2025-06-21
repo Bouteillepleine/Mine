@@ -34,7 +34,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Setup System
+      - name: Setup Build System
         run: |
           export DEBIAN_FRONTEND=noninteractive
           echo "DEBIAN_FRONTEND=noninteractive" >> $GITHUB_ENV
@@ -66,10 +66,9 @@ jobs:
           echo "some packages purged"
           
           df -h
-
-      - name: Install Repo and Python
-        run: |
+          
           # Install dependencies
+          echo "Installing Repo and Python"
           sudo apt update
           sudo apt install -y python3 python-is-python3
           
@@ -77,15 +76,9 @@ jobs:
           curl -sSL https://storage.googleapis.com/git-repo-downloads/repo > ./git-repo/repo
           chmod a+rx ./git-repo/repo
           echo "REPO=$GITHUB_WORKSPACE/./git-repo/repo" >> $GITHUB_ENV
-
-      - name: Set CONFIG Environment Variable
-        run: |
-          CONFIG="${{ inputs.model }}"
           
-          # Set CONFIG as an environment variable for future steps
-          echo "CONFIG=$CONFIG" >> $GITHUB_ENV
-          
-          echo "CONFIG set to: $CONFIG"
+          # Set CONFIG Environment Variable
+          echo "CONFIG=${{ inputs.model }}" >> $GITHUB_ENV
 
       - name: Clone AnyKernel3 and Other Dependencies
         run: |
@@ -116,7 +109,7 @@ jobs:
           # Sync repo and apply patches
           $REPO --version
           $REPO --trace sync -c --no-clone-bundle --no-tags --optimized-fetch -j$(nproc --all) --fail-fast
-
+      
       - name: Add KernelSU Next
         run: |
           echo "Changing to configuration directory: $CONFIG..."
@@ -129,8 +122,6 @@ jobs:
           else
             curl -LSs "https://raw.githubusercontent.com/KernelSU-Next/KernelSU-Next/next/kernel/setup.sh" | bash -s ${{ inputs.ksun_branch }}
           fi
-          
-          git submodule update --init --recursive
 
       - name: Apply SUSFS Patches
         run: |
@@ -146,33 +137,39 @@ jobs:
           
           cd ./KernelSU-Next
           
-          if [ "${{ inputs.ksun_branch }}" == "stable" ] || [ "${{ inputs.ksun_branch }}" == "next" ]; then
-            echo "Applying next SUSFS patches..."
-            cp ../../../kernel_patches/next/ksun_susfs_v1.5.7_patch_12647+.patch ./ksun_susfs_latest.patch
-            patch -p1 --forward < ksun_susfs_latest.patch || true
-          fi
+          echo "Applying next SUSFS patches..."
+          susfs_version=$(grep '#define SUSFS_VERSION' ../common/include/linux/susfs.h | awk -F'"' '{print $2}')
+          echo "SUSVER=$susfs_version" >> $GITHUB_ENV
+          BASE_VERSION=10200
+          KSU_VERSION=$(expr $(curl -sI -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" "https://api.github.com/repos/KernelSU-Next/KernelSU-Next/commits?sha=${{ inputs.ksun_branch }}&per_page=1" | grep -i "link:" | sed -n 's/.*page=\([0-9]*\)>; rel="last".*/\1/p') "+" $BASE_VERSION)
+          echo "KSUVER=$KSU_VERSION" >> $GITHUB_ENV
+          echo "KernelSU Next Version: $KSU_VERSION"
+          echo "SusFS Version: $susfs_version"
           
-          # Determine base version based on branch
-          case "${{ inputs.ksun_branch }}" in
-            next|stable)
-              BASE_VERSION=10200
+          case "$susfs_version" in
+            "v1.5.7")
+              cp "../../../kernel_patches/next/0001-kernel-implement-susfs-v1.5.5-v1.5.7-KSUN-v1.0.8.patch" "./ksun_susfs_latest.patch"
               ;;
-            next-susfs|next-susfs-dev)
-              BASE_VERSION=10198
+            "v1.5.8")
+              cp "../../../kernel_patches/next/0001-kernel-implement-susfs-v1.5.8-KernelSU-Next-v1.0.8.patch" "./ksun_susfs_latest.patch"
               ;;
             *)
-              BASE_VERSION=10200
+              echo "Invalid version: $susfs_version"
+              exit 1
               ;;
           esac
+          patch -p1 --forward < ksun_susfs_latest.patch || true
+          # [PATCH] hunt from start_stack
+          echo "[PATCH] hunt from start_stack"
+          curl -Ls https://github.com/backslashxx/KernelSU/commit/939f0fb1398355e18280a685f5944aad8052a372.patch  | patch -p1 -F 3 --verbose
+          # add counter
+          echo "[PATCH] hunt from start_stack - Add Counter"
+          curl -Ls https://github.com/backslashxx/KernelSU/commit/e306700b29332e9e3e8046c81cc0b3690ef3e59d.patch | patch -p1 -F 3 --verbose
           
-          cd ./kernel
-          KSU_VERSION=$(expr $(/usr/bin/git rev-list --count HEAD) "+" $BASE_VERSION)
-          echo "KSUVER=$KSU_VERSION" >> $GITHUB_ENV
-          sed -i "s/DKSU_VERSION=11998/DKSU_VERSION=${KSU_VERSION}/" Makefile
           
           # Change to common directory and apply SUSFS patch
-          cd ../../common
-          if [ "${{ inputs.soc }}" = "sun" ]; then
+          cd ../common
+          if [ "${{ inputs.android_version }}" = "android15" ] && [ "${{ inputs.kernel_version }}" = "6.6" ]; then
               if ! grep -qxF '#include <trace/hooks/fs.h>' ./fs/namespace.c; then
                   sed -i '/#include <trace\/hooks\/blk.h>/a #include <trace\/hooks\/fs.h>' ./fs/namespace.c
               else
@@ -182,7 +179,7 @@ jobs:
           patch -p1 < 50_add_susfs_in_gki-${{ inputs.android_version }}-${{ inputs.kernel_version }}.patch || true
           
           if ! grep -qxF '#define CMD_SUSFS_HIDE_SUS_MNTS_FOR_ALL_PROCS 0x55561' ./include/linux/susfs_def.h; then
-              curl -Ls https://raw.githubusercontent.com/fatalcoder524/kernel_patches_additional/refs/heads/main/hide_sus_mnts_for_all_procs.patch | patch -p1 -F 3
+              curl -Ls https://raw.githubusercontent.com/fatalcoder524/kernel_patches_additional/refs/heads/main/hide_sus_mnts_for_all_procs.patch  | patch -p1 -F 3
           else
               echo "Line already present. Skipping SUSFS_HIDE_SUS_MNTS_FOR_ALL_PROCS Patch."
           fi
@@ -192,7 +189,7 @@ jobs:
           
           if [ "$(printf '%s\n' "$KERNEL_VERSION" "$MIN_VERSION" | sort -V | head -n1)" = "$KERNEL_VERSION" ]; then
             echo "Patching ptrace!"
-            curl -Ls https://raw.githubusercontent.com/fatalcoder524/kernel_patches_additional/refs/heads/main/ptrace.patch | patch -p1 -F 3
+            curl -Ls https://raw.githubusercontent.com/fatalcoder524/kernel_patches_additional/refs/heads/main/ptrace.patch  | patch -p1 -F 3
           else
             echo "Kernel >= $MIN_VERSION, skipping ptrace patch"
           fi
@@ -246,27 +243,6 @@ jobs:
           echo "CONFIG_TMPFS_XATTR=y" >> ./common/arch/arm64/configs/gki_defconfig
           echo "CONFIG_TMPFS_POSIX_ACL=y" >> ./common/arch/arm64/configs/gki_defconfig
 
-      - name: Apply Additional Kernel Configurations
-        run: |
-          echo "Changing to configuration directory: $CONFIG..."
-          cd "$CONFIG/kernel_platform"
-          
-          echo "Applying additional kernel configurations..."
-          
-          # Network configurations
-          echo "CONFIG_IP_ECN=y" >> ./common/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_TCP_ECN=y" >> ./common/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_IPV6_ECN=y" >> ./common/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_IP_NF_TARGET_ECN=y" >> ./common/arch/arm64/configs/gki_defconfig         
-                    
-          # Disable debug options
-          echo "CONFIG_DEBUG_KERNEL=n" >> ./common/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_DYNAMIC_DEBUG=n" >> ./common/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_DEBUG_INFO=n" >> ./common/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_BOEFFLA_WL_BLOCKER=y" >> ./common/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_WQ_POWER_EFFICIENT_DEFAULT=y" >> ./common/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_CC_OPTIMIZE_FOR_PERFORMANCE=y" >> ./common/arch/arm64/configs/gki_defconfig
-
       - name: Add BBR Support
         run: |
           echo "Changing to configuration directory: $CONFIG..."
@@ -290,36 +266,31 @@ jobs:
           echo "Adding configuration settings to gki_defconfig..."
           echo "CONFIG_IP_NF_TARGET_TTL=y" >> ./common/arch/arm64/configs/gki_defconfig
           echo "CONFIG_IP6_NF_TARGET_HL=y" >> ./common/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_IP6_NF_MATCH_HL=y" >> ./common/arch/arm64/configs/gki_defconfig
+          echo "CONFIG_IP6_NF_MATCH_HL=y" >> ./common/arch/arm64/configs/gki_defconfig         
+          echo "CONFIG_IP_ECN=y" >> ./common/arch/arm64/configs/gki_defconfig
+          echo "CONFIG_TCP_ECN=y" >> ./common/arch/arm64/configs/gki_defconfig
+          echo "CONFIG_IPV6_ECN=y" >> ./common/arch/arm64/configs/gki_defconfig
+          echo "CONFIG_IP_NF_TARGET_ECN=y" >> ./common/arch/arm64/configs/gki_defconfig
 
-      - name: 🔧 Add sched_ext
+      - name: Debugg removed + others
         run: |
-         if [ "${{ inputs.soc }}" == "sun" ]; then
-         cd "$CONFIG/kernel_platform"
-         git clone https://github.com/HanKuCha/sched_ext.git
-         cp -r ./sched_ext/* ./common/kernel/sched
-         rm -rf ./sched_ext/.git
-         cd common/kernel/sched
-         fi
-      - name: Disable test and debug configurations
-        run: |
-          if [ -z "$CONFIG" ]; then
-            echo "Error: CONFIG environment variable is not set."
-            exit 1
-          fi
           echo "Changing to configuration directory: $CONFIG..."
-          cd "$CONFIG/kernel_platform" || {
-            echo "Error: Failed to change to $CONFIG/kernel_platform."
-            exit 1
-          }
-          
-          CONFIG_FILE="./common/arch/arm64/configs/gki_defconfig"
-          if [ ! -f "$CONFIG_FILE" ]; then
-            echo "Error: $CONFIG_FILE not found. Ensure kernel source is properly set up."
-            exit 1
-          fi          
-          
+          cd "$CONFIG/kernel_platform"
+
+          echo "CONFIG_DEBUG_KERNEL=n" >> ./common/arch/arm64/configs/gki_defconfig
+          echo "CONFIG_DYNAMIC_DEBUG=n" >> ./common/arch/arm64/configs/gki_defconfig
+          echo "CONFIG_DEBUG_INFO=n" >> ./common/arch/arm64/configs/gki_defconfig
+          echo "CONFIG_BOEFFLA_WL_BLOCKER=y" >> ./common/arch/arm64/configs/gki_defconfig
+          echo "CONFIG_WQ_POWER_EFFICIENT_DEFAULT=y" >> ./common/arch/arm64/configs/gki_defconfig
+          echo "CONFIG_CC_OPTIMIZE_FOR_PERFORMANCE=y" >> ./common/arch/arm64/configs/gki_defconfig
+
+      - name: Others unused modules
+        run: |
+          echo "Changing to configuration directory: $CONFIG..."
+          cd "$CONFIG/kernel_platform"       
+                    
           if [ "${{ inputs.soc }}" == "pineapple" ]; then
+            CONFIG_FILE="./common/arch/arm64/configs/gki_defconfig"
             echo "Disabling test and debug configurations in $CONFIG_FILE..." > config_changes.log
             for config in \
               "CONFIG_REGMAP_KUNIT=m/CONFIG_REGMAP_KUNIT=n" \
@@ -387,6 +358,17 @@ jobs:
               fi
             fi
           fi
+
+      - name: 🔧 Add sched_ext
+        run: |
+          if [ "${{ inputs.soc }}" == "sun" ]; then
+            cd "$CONFIG/kernel_platform"
+            git clone https://github.com/HanKuCha/sched_ext.git
+            cp -r ./sched_ext/* ./common/kernel/sched
+            rm -rf ./sched_ext/.git
+            cd common/kernel/sched
+          fi
+
       - name: Run sed and perl Commands
         run: |
           echo "Changing to configuration directory: $CONFIG..."
@@ -400,9 +382,17 @@ jobs:
           
           # Run sed commands for modifications
           sed -i 's/check_defconfig//' ./common/build.config.gki
-          sed -i '$s|echo "\$res"|echo "\$res"|' ./common/scripts/setlocalversion
-          sed -i '$s|echo "\$res"|echo "\$res"|' ./msm-kernel/scripts/setlocalversion
-          sed -i '$s|echo "\$res"|echo "\$res"|' ./external/dtc/scripts/setlocalversion
+          # For Old setlocalversion Script
+          tac ./common/scripts/setlocalversion | sed '0,/echo "\$res"/s//res=\$\(echo \$res \| cut -d- -f1-2\)\;echo "\$res"\;/' | tac > ./common/scripts/setlocalversion.tmp && mv ./common/scripts/setlocalversion.tmp ./common/scripts/setlocalversion
+          tac ./msm-kernel/scripts/setlocalversion | sed '0,/echo "\$res"/s//res=\$\(echo \$res \| cut -d- -f1-2\)\;echo "\$res"\;/' | tac > ./msm-kernel/scripts/setlocalversion.tmp && mv ./msm-kernel/scripts/setlocalversion.tmp ./msm-kernel/scripts/setlocalversion
+          tac ./external/dtc/scripts/setlocalversion | sed '0,/echo "\$res"/s//res=\$\(echo \$res \| cut -d- -f1-2\)\;echo "\$res"\;/' | tac > ./external/dtc/scripts/setlocalversion.tmp && mv ./external/dtc/scripts/setlocalversion.tmp ./external/dtc/scripts/setlocalversion
+          # For New setlocalversion Script
+          sed -i 's/echo "${KERNELVERSION}${file_localversion}${config_localversion}${LOCALVERSION}${scm_version}"/echo "${KERNELVERSION}-${{ inputs.android_version }}-OP-Wild"/' ./common/scripts/setlocalversion
+          sed -i 's/echo "${KERNELVERSION}${file_localversion}${config_localversion}${LOCALVERSION}${scm_version}"/echo "${KERNELVERSION}-${{ inputs.android_version }}-OP-Wild"/' ./msm-kernel/scripts/setlocalversion
+          sed -i 's/echo "${KERNELVERSION}${file_localversion}${config_localversion}${LOCALVERSION}${scm_version}"/echo "${KERNELVERSION}-${{ inputs.android_version }}-OP-Wild"/' ./external/dtc/scripts/setlocalversion
+          chmod +x ./common/scripts/setlocalversion
+          chmod +x ./msm-kernel/scripts/setlocalversion
+          chmod +x ./external/dtc/scripts/setlocalversion
           sed -i "/stable_scmversion_cmd/s/-maybe-dirty//g" ./build/kernel/kleaf/impl/stamp.bzl || echo "No stamp.bzl!"
           sed -i 's/-dirty//' ./common/scripts/setlocalversion
           sed -i 's/-dirty//' ./msm-kernel/scripts/setlocalversion
@@ -411,12 +401,12 @@ jobs:
           
           sed -i '/echo "LTO $LTO "/i export LTO=thin' ./oplus/build/oplus_setup.sh
           sed -i 's/export REPACK_IMG=true/export REPACK_IMG=false/g' ./oplus/build/oplus_setup.sh
-          
+         
           # Run perl command to modify UTS_VERSION
           DATESTR=$(date -u)
           perl -pi -e 's{UTS_VERSION="\$\(echo \$UTS_VERSION \$CONFIG_FLAGS \$TIMESTAMP \| cut -b -\$UTS_LEN\)"}{UTS_VERSION="#1 SMP PREEMPT $DATESTR"}' ./common/scripts/mkcompile_h
           perl -pi -e 's{UTS_VERSION="\$\(echo \$UTS_VERSION \$CONFIG_FLAGS \$TIMESTAMP \| cut -b -\$UTS_LEN\)"}{UTS_VERSION="#1 SMP PREEMPT $DATESTR"}' ./msm-kernel/scripts/mkcompile_h
-         
+
       - name: Build the Kernel
         run: |
           echo "Changing to configuration directory: $CONFIG..."
@@ -455,39 +445,40 @@ jobs:
             ./kernel_platform/oplus/bazel/oplus_modules_variant.sh ${{ inputs.soc }} "$BUILD_TYPE" ""
             ./kernel_platform/build_with_bazel.py -t ${{ inputs.soc }} $BUILD_TYPE "${BAZEL_ARGS[@]}" -o "$(pwd)/out"
           else
+            # cd ./kernel_platform/common/
+            # make -j$(nproc --all) LLVM=1 ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- CROSS_COMPILE_ARM32=arm-linux-gnuabeihf- CC=/home/runner/work/OnePlus_KernelSU_SUSFS/OnePlus_KernelSU_SUSFS/OP11/kernel_platform/prebuilts-master/clang/host/linux-x86/clang-r450784e/bin/clang LD=/home/runner/work/OnePlus_KernelSU_SUSFS/OnePlus_KernelSU_SUSFS/OP11/kernel_platform/prebuilts-master/clang/host/linux-x86/clang-r450784e/bin/ld.lld HOSTCC=/home/runner/work/OnePlus_KernelSU_SUSFS/OnePlus_KernelSU_SUSFS/OP11/kernel_platform/prebuilts-master/clang/host/linux-x86/clang-r450784e/bin/clang HOSTLD=/home/runner/work/OnePlus_KernelSU_SUSFS/OnePlus_KernelSU_SUSFS/OP11/kernel_platform/prebuilts-master/clang/host/linux-x86/clang-r450784e/bin/ld.lld O=/home/runner/work/OnePlus_KernelSU_SUSFS/OnePlus_KernelSU_SUSFS/OP11/kernel_platform/out KCFLAGS+=-Wno-error gki_defconfig all 2>&1 | tee build_$(date +"%Y_%m_%d_%H_%M_%S").log
             LTO=thin ./kernel_platform/oplus/build/oplus_build_kernel.sh ${{ inputs.soc }} "$BUILD_TYPE"
           fi
 
-      - name: Copy Images
+      - name: Create ZIP Files for Different Formats
         run: |
           echo "Changing to configuration directory: $CONFIG..."
           cd "$CONFIG"
           
           echo "Copying Image"
           cp ./out/dist/Image ../AnyKernel3/Image
-          if [ "${{ inputs.model }}" == "OPAce5Pro" ]; then
-            cp ./out/dist/dtbo.img ../AnyKernel3/
-            cp ./out/dist/system_dlkm.erofs.img ../AnyKernel3/system_dlkm.img
-          fi
-
-      - name: Create ZIP Files for Different Formats
-        run: |
+          
           echo "Navigating to AnyKernel3 directory..."
-          cd ./AnyKernel3
+          cd ../AnyKernel3
           
           # Zip the files in the AnyKernel3 directory with a new naming convention
-          ZIP_NAME="${{ inputs.model }}_${{ inputs.android_version }}_${{ inputs.kernel_version }}_Next_SUSFS_AnyKernel3.zip"
+          ZIP_NAME="AnyKernel3_${{ inputs.model }}_${{ inputs.android_version }}-${{ inputs.kernel_version }}_Next_${{ env.KSUVER }}_SUSFS_${{ env.SUSVER }}.zip"
           echo "Creating zip file $ZIP_NAME..."
           zip -r "../$ZIP_NAME" ./*
-          # Fengchi Patch for OPAce5Pro
-          if [ "${{ inputs.model }}" == "OPAce5Pro" ]; then
-            sed -i 's/hmbird/xxbird/g' dtbo.img
-            zip -r "../$ZIP_NAME-CN-version.zip" ./*
-          fi
 
       - name: Upload Build Artifacts
         uses: actions/upload-artifact@v4
         with:
           name: kernel-${{ env.CONFIG }}
+          path: "./AnyKernel3/*"
+
+      - name: Upload Build Logs
+        uses: actions/upload-artifact@v4
+        if: ${{ always() && failure() }}
+        with:
+          name: build-logs
           path: |
-            *.zip
+            ${{ env.CONFIG }}/out/*.log
+            ${{ env.CONFIG }}/kernel_platform/**/*.rej
+          retention-days: 2
+          if-no-files-found: error
