@@ -56,9 +56,9 @@ jobs:
         run: |
           curl https://storage.googleapis.com/git-repo-downloads/repo > ~/repo
           chmod a+x ~/repo
-          sudo mv ~/repo /usr/local/bin/repo
-          # Ensure repo is in PATH
-          echo "export PATH=\$PATH:/usr/local/bin" >> $GITHUB_ENV
+          sudo mv ~/repo /usr/bin/repo
+          # Verify repo installation
+          repo --version
 
       - name: Initialize Repo and Sync Source Code
         run: |
@@ -176,12 +176,11 @@ jobs:
       - name: Configure Bazel for ThinLTO
         run: |
           cd kernel_workspace/kernel_platform
+          # Set Clang and LLD as compiler and linker
           if [ -f ./common/build.config.gki ]; then
-            echo "KBUILD_CFLAGS := \${KBUILD_CFLAGS} -flto=thin" >> ./common/build.config.gki
-            echo "KBUILD_LDFLAGS := \${KBUILD_LDFLAGS} -flto=thin" >> ./common/build.config.gki
+            echo "CC=clang" >> ./common/build.config.gki
+            echo "LD=ld.lld" >> ./common/build.config.gki
           fi
-          echo "CC=clang" >> ./common/build.config.gki
-          echo "LD=ld.lld" >> ./common/build.config.gki
 
       - name: Debug build.config.gki Contents
         run: |
@@ -208,6 +207,9 @@ jobs:
       - name: Build Kernel
         run: |
           cd kernel_workspace
+          # Set environment variables for ThinLTO
+          export KBUILD_CFLAGS="-flto=thin"
+          export KBUILD_LDFLAGS="-flto=thin"
           ./kernel_platform/build_with_bazel.py -t ${{ env.CPUD }} ${{ env.BUILD_METHOD }} --lto=thin --verbose_failures
           if ! grep -r "\-flto=thin" kernel_platform/out; then
             echo "ThinLTO flag was not applied during the build!"
