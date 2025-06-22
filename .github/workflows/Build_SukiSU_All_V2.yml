@@ -7,7 +7,7 @@ on:
         description: "Branch (SoC Platform)"
         type: choice
         required: true
-        default: sm8550
+        default: sm8650
         options:
           - sm7550
           - sm7675
@@ -85,7 +85,7 @@ on:
       KERNEL_NAME:
         description: "Kernel Suffix Name"
         required: false
-        default: ''
+        default: '-android14-11-o-g8156f574866f'
       ZRAM:
         description: "Enable Additional ZRAM (Recommended)"
         type: boolean
