@@ -2,7 +2,7 @@ name: OnePlus 13R_V2
 on:
   workflow_dispatch:
   schedule:
-    - cron: '0 16 * * *' 
+    - cron: '0 16 * * *'
 env:
   CPU: 'sm8650'
   FEIL: 'oneplus_13r'
@@ -57,6 +57,8 @@ jobs:
           curl https://storage.googleapis.com/git-repo-downloads/repo > ~/repo
           chmod a+x ~/repo
           sudo mv ~/repo /usr/local/bin/repo
+          # Ensure repo is in PATH
+          echo "export PATH=\$PATH:/usr/local/bin" >> $GITHUB_ENV
 
       - name: Initialize Repo and Sync Source Code
         run: |
@@ -174,14 +176,28 @@ jobs:
       - name: Configure Bazel for ThinLTO
         run: |
           cd kernel_workspace/kernel_platform
-          # Add ThinLTO flags to Bazel build configuration
           if [ -f ./common/build.config.gki ]; then
-            echo "KBUILD_CFLAGS += -flto=thin" >> ./common/build.config.gki
-            echo "KBUILD_LDFLAGS += -flto=thin" >> ./common/build.config.gki
+            echo "KBUILD_CFLAGS := \${KBUILD_CFLAGS} -flto=thin" >> ./common/build.config.gki
+            echo "KBUILD_LDFLAGS := \${KBUILD_LDFLAGS} -flto=thin" >> ./common/build.config.gki
           fi
-          # Ensure Bazel uses Clang
           echo "CC=clang" >> ./common/build.config.gki
           echo "LD=ld.lld" >> ./common/build.config.gki
+
+      - name: Debug build.config.gki Contents
+        run: |
+          cd kernel_workspace/kernel_platform
+          if [ -f ./common/build.config.gki ]; then
+            echo "Contents of build.config.gki:"
+            cat ./common/build.config.gki
+          else
+            echo "build.config.gki not found!"
+            exit 1
+          fi
+
+      - name: Clean Workspace
+        run: |
+          cd kernel_workspace/kernel_platform
+          ./tools/bazel clean
 
       - name: Add Build Name
         working-directory: ${{ env.WORKSPACE_DIR }}/kernel_platform
@@ -192,11 +208,9 @@ jobs:
       - name: Build Kernel
         run: |
           cd kernel_workspace
-          # Pass ThinLTO flag explicitly to build_with_bazel.py, if supported
-          ./kernel_platform/build_with_bazel.py -t ${{ env.CPUD }} ${{ env.BUILD_METHOD }} --lto=thin
-          # Verify ThinLTO was applied by checking build logs
-          if ! grep -r "flto=thin" kernel_platform/out; then
-            echo "ThinLTO was not applied during the build!"
+          ./kernel_platform/build_with_bazel.py -t ${{ env.CPUD }} ${{ env.BUILD_METHOD }} --lto=thin --verbose_failures
+          if ! grep -r "\-flto=thin" kernel_platform/out; then
+            echo "ThinLTO flag was not applied during the build!"
             exit 1
           fi
 
@@ -258,7 +272,7 @@ jobs:
       - name: Package Original Image (ZIP)
         run: |
           cd $GITHUB_WORKSPACE/kernel_workspace
-          zip -r ../Image_KernelSU_${{ env.KSUVER }}_${{ env.FEIL }}.zip ./init_boot_Image.img      
+          zip -r ../Image_KernelSU_${{ env.KSUVER }}_${{ env.FEIL }}.zip ./init_boot_Image.img
 
       - name: Set Suffix
         id: suffix
