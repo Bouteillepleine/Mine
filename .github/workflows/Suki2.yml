@@ -35,10 +35,14 @@ jobs:
         run: |
           git config --global user.name "0+builder"
           git config --global user.email "0+builder@yahoo.com"
+
       - name: Install Dependencies
         run: |
           sudo apt update && sudo apt upgrade -y
-          sudo apt install -y python3 git curl
+          sudo apt install -y python3 git curl clang lld
+          # Verify Clang version (ThinLTO requires Clang 10 or later)
+          clang --version
+
       - name: Display Selected Input Parameters (Debug)
         run: |
           echo "CPU: ${{ env.CPU }}"
@@ -47,11 +51,13 @@ jobs:
           echo "Android Version: ${{ env.ANDROID_VERSION }}"
           echo "Kernel Version: ${{ env.KERNEL_VERSION }}"
           echo "Build Method: ${{ env.BUILD_METHOD }}"
+
       - name: Install Repo Tool
         run: |
           curl https://storage.googleapis.com/git-repo-downloads/repo > ~/repo
           chmod a+x ~/repo
           sudo mv ~/repo /usr/local/bin/repo
+
       - name: Initialize Repo and Sync Source Code
         run: |
           mkdir kernel_workspace && cd kernel_workspace
@@ -65,6 +71,7 @@ jobs:
           fi
           rm kernel_platform/common/android/abi_gki_protected_exports_* || echo "No protected exports!"
           rm kernel_platform/msm-kernel/android/abi_gki_protected_exports_* || echo "No protected exports!"
+
       - name: Force Remove -dirty Suffix
         run: |
           cd kernel_workspace/kernel_platform
@@ -74,6 +81,7 @@ jobs:
           sed -i '$i res=$(echo "$res" | sed '\''s/-dirty//g'\'')' common/scripts/setlocalversion
           git add -A
           git commit -m "Force remove -dirty suffix from kernel version"
+
       - name: Add SukiSU Ultra
         run: |
           cd kernel_workspace/kernel_platform
@@ -83,6 +91,7 @@ jobs:
           echo "KSUVER=$KSU_VERSION" >> $GITHUB_ENV
           export KSU_VERSION=$KSU_VERSION
           sed -i "s/DKSU_VERSION=12800/DKSU_VERSION=${KSU_VERSION}/" kernel/Makefile
+
       - name: Apply SukiSU Ultra Patch
         run: |
           cd kernel_workspace
@@ -96,12 +105,14 @@ jobs:
           cd ./common
           patch -p1 < 50_add_susfs_in_gki-${{ env.ANDROID_VERSION }}-${{ env.KERNEL_VERSION }}.patch || true
           echo "Completed"
+
       - name: Apply Hide Patch
         run: |
           cd kernel_workspace/kernel_platform/common
           cp ../../SukiSU_patch/69_hide_stuff.patch ./
           echo "Applying hide application patch"
           patch -p1 -F 3 < 69_hide_stuff.patch
+
       - name: Apply VFS Patch
         run: |
           cd kernel_workspace/kernel_platform/common
@@ -109,6 +120,7 @@ jobs:
           echo "Applying VFS patch"
           patch -p1 -F 3 < syscall_hooks.patch
           echo "VFS patch completed"
+
       - name: Add Configuration Information
         run: |
           cd kernel_workspace/kernel_platform
@@ -135,41 +147,59 @@ jobs:
           echo "CONFIG_KSU_SUSFS_HIDE_KSU_SUSFS_SYMBOLS=y" >> "$CONFIG_FILE"
           echo "CONFIG_KSU_SUSFS_SPOOF_CMDLINE_OR_BOOTCONFIG=y" >> "$CONFIG_FILE"
           echo "CONFIG_KSU_SUSFS_OPEN_REDIRECT=y" >> "$CONFIG_FILE"
-
-          echo "CONFIG_TMPFS_XATTR=y" >> ./common/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_TMPFS_POSIX_ACL=y" >> ./common/arch/arm64/configs/gki_defconfig
-
-          echo "CONFIG_TCP_CONG_ADVANCED=y" >> ./common/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_TCP_CONG_BBR=y" >> ./common/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_TCP_CONG_BIC=n" >> ./common/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_TCP_CONG_WESTWOOD=n" >> ./common/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_TCP_CONG_HTCP=n" >> ./common/arch/arm64/configs/gki_defconfig
-
-          echo "CONFIG_IP_NF_TARGET_TTL=y" >> ./common/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_IP6_NF_TARGET_HL=y" >> ./common/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_IP6_NF_MATCH_HL=y" >> ./common/arch/arm64/configs/gki_defconfig         
-          echo "CONFIG_IP_ECN=y" >> ./common/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_TCP_ECN=y" >> ./common/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_IPV6_ECN=y" >> ./common/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_IP_NF_TARGET_ECN=y" >> ./common/arch/arm64/configs/gki_defconfig
-
-          echo "CONFIG_DEBUG_KERNEL=n" >> ./common/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_DYNAMIC_DEBUG=n" >> ./common/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_DEBUG_INFO=n" >> ./common/arch/arm64/configs/gki_defconfig  
-          
+          echo "CONFIG_TMPFS_XATTR=y" >> "$CONFIG_FILE"
+          echo "CONFIG_TMPFS_POSIX_ACL=y" >> "$CONFIG_FILE"
+          echo "CONFIG_TCP_CONG_ADVANCED=y" >> "$CONFIG_FILE"
+          echo "CONFIG_TCP_CONG_BBR=y" >> "$CONFIG_FILE"
+          echo "CONFIG_TCP_CONG_BIC=n" >> "$CONFIG_FILE"
+          echo "CONFIG_TCP_CONG_WESTWOOD=n" >> "$CONFIG_FILE"
+          echo "CONFIG_TCP_CONG_HTCP=n" >> "$CONFIG_FILE"
+          echo "CONFIG_IP_NF_TARGET_TTL=y" >> "$CONFIG_FILE"
+          echo "CONFIG_IP6_NF_TARGET_HL=y" >> "$CONFIG_FILE"
+          echo "CONFIG_IP6_NF_MATCH_HL=y" >> "$CONFIG_FILE"
+          echo "CONFIG_IP_ECN=y" >> "$CONFIG_FILE"
+          echo "CONFIG_TCP_ECN=y" >> "$CONFIG_FILE"
+          echo "CONFIG_IPV6_ECN=y" >> "$CONFIG_FILE"
+          echo "CONFIG_IP_NF_TARGET_ECN=y" >> "$CONFIG_FILE"
+          echo "CONFIG_DEBUG_KERNEL=n" >> "$CONFIG_FILE"
+          echo "CONFIG_DYNAMIC_DEBUG=n" >> "$CONFIG_FILE"
+          echo "CONFIG_DEBUG_INFO=n" >> "$CONFIG_FILE"
           # ThinLTO config
+          echo "CONFIG_LTO=y" >> "$CONFIG_FILE"
           echo "CONFIG_THINLTO=y" >> "$CONFIG_FILE"
+          echo "CONFIG_LTO_CLANG=y" >> "$CONFIG_FILE"
           # Remove check_defconfig
           sed -i 's/check_defconfig//' ./common/build.config.gki
+
+      - name: Configure Bazel for ThinLTO
+        run: |
+          cd kernel_workspace/kernel_platform
+          # Add ThinLTO flags to Bazel build configuration
+          if [ -f ./common/build.config.gki ]; then
+            echo "KBUILD_CFLAGS += -flto=thin" >> ./common/build.config.gki
+            echo "KBUILD_LDFLAGS += -flto=thin" >> ./common/build.config.gki
+          fi
+          # Ensure Bazel uses Clang
+          echo "CC=clang" >> ./common/build.config.gki
+          echo "LD=ld.lld" >> ./common/build.config.gki
+
       - name: Add Build Name
         working-directory: ${{ env.WORKSPACE_DIR }}/kernel_platform
         run: |
           sed -i "/stable_scmversion_cmd/s/-maybe-dirty//g" ./build/kernel/kleaf/impl/stamp.bzl
           sed -i 's|echo "\$res"|echo "'"$(echo "${{ env.KERNEL_NAME }}" | sed 's/[\&/]/\\&/g')"'"|g' ./common/scripts/setlocalversion
+
       - name: Build Kernel
         run: |
           cd kernel_workspace
-          ./kernel_platform/build_with_bazel.py -t ${{ env.CPUD }} ${{ env.BUILD_METHOD }}
+          # Pass ThinLTO flag explicitly to build_with_bazel.py, if supported
+          ./kernel_platform/build_with_bazel.py -t ${{ env.CPUD }} ${{ env.BUILD_METHOD }} --lto=thin
+          # Verify ThinLTO was applied by checking build logs
+          if ! grep -r "flto=thin" kernel_platform/out; then
+            echo "ThinLTO was not applied during the build!"
+            exit 1
+          fi
+
       - name: Create AnyKernel3
         run: |
           git clone https://github.com/Numbersf/AnyKernel3 --depth=1
@@ -208,6 +238,7 @@ jobs:
             echo "Image file not found, build may have failed"
             exit 1
           fi
+
       - name: Apply patch_linux and Replace Kernel
         run: |
           cd kernel_workspace/kernel_platform/out/msm-kernel-${{ env.CPUD }}-gki/dist
@@ -218,19 +249,22 @@ jobs:
           mv oImage Image
           cp Image $GITHUB_WORKSPACE/AnyKernel3/Image
           cp Image $GITHUB_WORKSPACE/kernel_workspace/init_boot_Image.img
+
       - name: Package AnyKernel3 (ZIP)
         run: |
           cd $GITHUB_WORKSPACE/AnyKernel3
           zip -r ../AnyKernel3_KernelSU_${{ env.KSUVER }}_${{ env.FEIL }}.zip ./*
-          cd ..
+
       - name: Package Original Image (ZIP)
         run: |
           cd $GITHUB_WORKSPACE/kernel_workspace
           zip -r ../Image_KernelSU_${{ env.KSUVER }}_${{ env.FEIL }}.zip ./init_boot_Image.img      
+
       - name: Set Suffix
         id: suffix
         run: |
           echo "value=_KPM_VFS" >> $GITHUB_OUTPUT
+
       - name: Remove _uv Suffix from FEIL
         id: feil_clean
         run: |
@@ -238,6 +272,7 @@ jobs:
           clean_feil="${clean_feil%_v}"
           clean_feil="${clean_feil%_u}"
           echo "value=$clean_feil" >> $GITHUB_OUTPUT
+
       - name: Upload AnyKernel3 ZIP Artifact
         uses: actions/upload-artifact@v4
         with:
