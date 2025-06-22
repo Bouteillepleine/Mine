@@ -28,6 +28,10 @@ on:
         required: true
         type: string
         default: stable
+      susfs_branch:
+        required: true
+        type: string
+        default: ""
 
 jobs:
   build-kernel-oneplus-kernelsu-susfs:
@@ -85,7 +89,11 @@ jobs:
           echo "Cloning AnyKernel3 and other dependencies..."
           
           ANYKERNEL_BRANCH="gki-2.0"
-          SUSFS_BRANCH="gki-${{ inputs.android_version }}-${{ inputs.kernel_version }}"
+          if [[ -z "${{ inputs.susfs_branch }}" ]]; then
+            SUSFS_BRANCH="gki-${{ inputs.android_version }}-${{ inputs.kernel_version }}"
+          else
+            SUSFS_BRANCH="${{ inputs.susfs_branch }}"
+          fi
           
           # Debug print the branches
           echo "Using branch for AnyKernel3: $ANYKERNEL_BRANCH"
@@ -147,7 +155,7 @@ jobs:
           echo "SusFS Version: $susfs_version"
           
           case "$susfs_version" in
-            "v1.5.7")
+            "v1.5.5"|"v1.5.6"|"v1.5.7")
               cp "../../../kernel_patches/next/0001-kernel-implement-susfs-v1.5.5-v1.5.7-KSUN-v1.0.8.patch" "./ksun_susfs_latest.patch"
               ;;
             "v1.5.8")
@@ -159,12 +167,6 @@ jobs:
               ;;
           esac
           patch -p1 --forward < ksun_susfs_latest.patch || true
-          # [PATCH] hunt from start_stack
-          echo "[PATCH] hunt from start_stack"
-          curl -Ls https://github.com/backslashxx/KernelSU/commit/939f0fb1398355e18280a685f5944aad8052a372.patch  | patch -p1 -F 3 --verbose
-          # add counter
-          echo "[PATCH] hunt from start_stack - Add Counter"
-          curl -Ls https://github.com/backslashxx/KernelSU/commit/e306700b29332e9e3e8046c81cc0b3690ef3e59d.patch | patch -p1 -F 3 --verbose
           
           
           # Change to common directory and apply SUSFS patch
@@ -201,7 +203,7 @@ jobs:
           echo "Applying KSUN Hooks..."
           cp ../../../kernel_patches/next/scope_min_manual_hooks_v1.4.patch ./manual_hooks.patch
           patch -p1 --fuzz=3 < ./manual_hooks.patch
-
+          
       - name: Apply Hide Stuff Patches
         run: |
           echo "Changing to configuration directory: $CONFIG..."
@@ -354,34 +356,21 @@ jobs:
             LTO=thin ./kernel_platform/oplus/build/oplus_build_kernel.sh ${{ inputs.soc }} "$BUILD_TYPE"
           fi
 
-      - name: Copy Images
+      - name: Create ZIP Files for Different Formats
         run: |
           echo "Changing to configuration directory: $CONFIG..."
           cd "$CONFIG"
           
           echo "Copying Image"
           cp ./out/dist/Image ../AnyKernel3/Image
-          if [ "${{ inputs.model }}" == "OPAce5Pro" ]; then
-            cp ./out/dist/dtbo.img ../AnyKernel3/
-            cp ./out/dist/system_dlkm.erofs.img ../AnyKernel3/system_dlkm.img
-            # cp ./out/dist/vendor_dlkm.img ../AnyKernel3/
-            # cp ./out/dist/vendor_boot.img ../AnyKernel3/
-          fi
-
-      - name: Create ZIP Files for Different Formats
-        run: |
+          
           echo "Navigating to AnyKernel3 directory..."
-          cd ./AnyKernel3
+          cd ../AnyKernel3
           
           # Zip the files in the AnyKernel3 directory with a new naming convention
-          ZIP_NAME="${{ inputs.model }}_${{ inputs.android_version }}_${{ inputs.kernel_version }}_Next_SUSFS_AnyKernel3.zip"
+          ZIP_NAME="AnyKernel3_${{ inputs.model }}_${{ inputs.android_version }}-${{ inputs.kernel_version }}_Next_${{ env.KSUVER }}_SUSFS_${{ env.SUSVER }}.zip"
           echo "Creating zip file $ZIP_NAME..."
           zip -r "../$ZIP_NAME" ./*
-          # Fengchi Patch for OPAce5Pro
-          if [ "${{ inputs.model }}" == "OPAce5Pro" ]; then
-            sed -i 's/hmbird/xxbird/g' dtbo.img
-            zip -r "../$ZIP_NAME-CN-version.zip" ./*
-          fi
 
       - name: Upload Build Artifacts
         uses: actions/upload-artifact@v4
