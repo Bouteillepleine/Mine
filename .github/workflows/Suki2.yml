@@ -1,8 +1,7 @@
 name: OnePlus 13R_V2
 on:
   workflow_dispatch:
-  schedule:
-    - cron: '0 16 * * *'
+  
 env:
   CPU: 'sm8650'
   FEIL: 'oneplus_13r'
