@@ -224,15 +224,25 @@ jobs:
           echo "CONFIG_NET_SCH_FQ_CODEL=y" >> "$CONFIG_FILE"
           sed -i -e '/CONFIG_NET_SCH_FQ_CODEL=/d' -e '$aCONFIG_NET_SCH_FQ_CODEL=y' ./common/arch/arm64/configs/gki_defconfig          
 
-      - name: Additional Configurations
+      - name: Others configurations
+        shell: bash
         run: |
-          cd kernel_workspace/kernel_platform
+          echo "Changing to configuration directory: $CONFIG..."
+          cd "$CONFIG/kernel_platform"
+      
           CONFIG_FILE="./common/arch/arm64/configs/gki_defconfig"
+          echo "Configuring $CONFIG_FILE..."
+          
+          # Disable debugging options
           echo "CONFIG_DEBUG_KERNEL=n" >> "$CONFIG_FILE"
           echo "CONFIG_DYNAMIC_DEBUG=n" >> "$CONFIG_FILE"
           echo "CONFIG_DEBUG_INFO=n" >> "$CONFIG_FILE"
+          
+          # Enable SSG I/O scheduler 
           echo "CONFIG_MQ_IOSCHED_SSG=y" >> "$CONFIG_FILE"
           echo "CONFIG_MQ_IOSCHED_SSG_CGROUP=y" >> "$CONFIG_FILE"
+          
+          # Configure LTO and optimizations
           sed -i '/CONFIG_LTO_NONE/d' "$CONFIG_FILE"
           sed -i '/CONFIG_LTO_CLANG_FULL/d' "$CONFIG_FILE"
           sed -i '/CONFIG_LTO_CLANG_THIN/d' "$CONFIG_FILE"
@@ -240,9 +250,12 @@ jobs:
           echo "CONFIG_LTO_CLANG=y" >> "$CONFIG_FILE"
           echo "CONFIG_LTO_CLANG_THIN=y" >> "$CONFIG_FILE"
           echo "CONFIG_CC_OPTIMIZE_FOR_PERFORMANCE=y" >> "$CONFIG_FILE"
-          echo "CONFIG_LD_DEAD_CODE_DATA_ELIMINATION=y" >> ./common/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_AUTOFDO_CLANG=y" >> ./common/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_LLVM_POLLY=y" >> ./common/arch/arm64/configs/gki_defconfig
+          echo "CONFIG_LD_DEAD_CODE_DATA_ELIMINATION=y" >> "$CONFIG_FILE"
+          
+          # Conditionally enable AutoFDO and Polly (only if profiling data is available)
+          echo "CONFIG_AUTOFDO_CLANG=y" >> "$CONFIG_FILE"          
+          # Polly is disabled by default to reduce build time; enable only if profiling shows benefits
+          echo "CONFIG_LLVM_POLLY=y" >> "$CONFIG_FILE"
 
       - name: Disable OnePlus Kernel Module
         run: |
