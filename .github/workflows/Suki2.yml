@@ -33,16 +33,42 @@ jobs:
     outputs:
       ksuver: ${{ steps.ksuver.outputs.value }}
     steps:
+      - name: Clean Up /mnt Filesystem
+        run: |
+          echo "Checking /mnt usage before cleanup:"
+          df -h /mnt
+          # Remove temporary files and directories in /mnt
+          sudo find /mnt -type f -name '*.tmp' -delete
+          sudo find /mnt -type d -name 'tmp*' -exec rm -rf {} +
+          sudo rm -rf /mnt/tmp-pv.img /mnt/swapfile
+          echo "Checking /mnt usage after cleanup:"
+          df -h /mnt
+
       - name: Maximize Build Space
         uses: easimon/maximize-build-space@master
         with:
           root-reserve-mb: 8192
-          temp-reserve-mb: 2048
+          temp-reserve-mb: 0
           swap-size-mb: 8192
-          remove-dotnet: 'true'
-          remove-android: 'true'
-          remove-haskell: 'true'
-          remove-codeql: 'true'
+          remove-dotnet: true
+          remove-android: true
+          remove-haskell: true
+          remove-codeql: true
+          overprovision-lvm: false
+          build-mount-path-ownership: runner:runner
+          pv-loop-path: /pv.img
+          tmp-pv-loop-path: /mnt/tmp-pv.img
+
+      - name: Display Memory and Storage
+        run: |
+          echo "Memory and swap:"
+          sudo free -h
+          echo
+          sudo swapon --show
+          echo
+          echo "Available storage:"
+          sudo df -h
+          echo
 
       - name: Configure Git Information
         run: |
@@ -324,6 +350,15 @@ jobs:
           if ! command -v ld.lld >/dev/null 2>&1; then
             echo "⚠️ ld.lld not found. Ensure the lld package is installed and the Clang toolchain includes ld.lld."
             echo "Falling back to Bazel build."
+            echo "fallback=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          # Verify Clang toolchain directory
+          if [ -d "$GITHUB_WORKSPACE/kernel_workspace/kernel_platform/$CLANG_DIR/clang/host/linux-x86/$CLANG_PATH/bin" ]; then
+            echo "Clang toolchain found:"
+            ls -l $GITHUB_WORKSPACE/kernel_workspace/kernel_platform/$CLANG_DIR/clang/host/linux-x86/$CLANG_PATH/bin
+          else
+            echo "Clang toolchain directory not found: $GITHUB_WORKSPACE/kernel_workspace/kernel_platform/$CLANG_DIR/clang/host/linux-x86/$CLANG_PATH/bin"
             echo "fallback=true" >> "$GITHUB_OUTPUT"
             exit 0
           fi
