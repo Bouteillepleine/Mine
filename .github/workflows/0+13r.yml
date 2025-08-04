@@ -12,7 +12,7 @@ env:
   BUILD_METHOD: 'gki'
   RETENTION_COUNT: 3
   WORKSPACE_DIR: 'kernel_workspace'
-  KERNEL_NAME: ''
+  KERNEL_NAME: '-android14-11-o-g8156f574866f'
 
 jobs:
   build:
@@ -129,6 +129,8 @@ jobs:
           # SukiSU Ultra config
           echo "CONFIG_KSU_SUSFS_SUS_SU=n" >> "$CONFIG_FILE"
           echo "CONFIG_KSU_MANUAL_HOOK=y" >> "$CONFIG_FILE"
+          echo "CONFIG_KSU=y" >> "$CONFIG_FILE"
+          echo "CONFIG_KPM=y" >> "$CONFIG_FILE"
 
           # SUSFS configuration
           echo "CONFIG_KSU_SUSFS=y" >> "$CONFIG_FILE"
