@@ -1,4 +1,4 @@
-name: OnePlus 13RV2
+name: OnePlus 13Rv2
 on:
   workflow_dispatch:
     inputs:
@@ -19,7 +19,6 @@ env:
   RETENTION_COUNT: 3
   WORKSPACE_DIR: 'kernel_workspace'
   KERNEL_NAME: '-android14-11-o-g8156f574866f'
-  # Add ccache environment variables
   CCACHE_DIR: '/home/runner/.ccache'
   CCACHE_SIZE: '20G'
 
@@ -56,10 +55,8 @@ jobs:
 
       - name: Install Dependencies and ccache
         run: |
-          # Optimize APT with a faster mirror and cache
-          echo "deb http://cloudfront.debian.net/debian buster main" | sudo tee /etc/apt/sources.list
           sudo apt-get update -o Acquire::http::Timeout=30 -o Acquire::Retries=3
-          sudo apt-get install -y --no-install-recommends python3 git curl ccache build-essential bc
+          sudo apt-get install -y --no-install-recommends python3 git curl ccache build-essential bc libncurses-dev bison flex libssl-dev
           ccache -M ${{ env.CCACHE_SIZE }}
           ccache -z
 
@@ -281,7 +278,7 @@ jobs:
           export CC="ccache gcc"
           export CXX="ccache g++"
           export PATH="/usr/lib/ccache:$PATH"
-          ./kernel_platform/build_with_bazel.py -t ${{ env.CPUD }} ${{ env.BUILD_METHOD }} --lto=thin
+          ./kernel_platform/build_with_bazel.py -t ${{ env.CPUD }} ${{ env.BUILD_METHOD }} --lto=thin --jobs=$(nproc)
           echo "ccache stats after build:"
           ccache -s
 
