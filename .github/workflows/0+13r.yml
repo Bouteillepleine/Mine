@@ -127,12 +127,10 @@ jobs:
           KERNEL_VERSION="${{ env.KERNEL_VERSION }}"
 
           # SukiSU Ultra config
-          echo "CONFIG_KSU=y" >> "$CONFIG_FILE"
-          echo "CONFIG_KPM=y" >> "$CONFIG_FILE"
           echo "CONFIG_KSU_SUSFS_SUS_SU=n" >> "$CONFIG_FILE"
           echo "CONFIG_KSU_MANUAL_HOOK=y" >> "$CONFIG_FILE"
 
-          # SUSFS config
+          # SUSFS configuration
           echo "CONFIG_KSU_SUSFS=y" >> "$CONFIG_FILE"
           echo "CONFIG_KSU_SUSFS_HAS_MAGIC_MOUNT=y" >> "$CONFIG_FILE"
           echo "CONFIG_KSU_SUSFS_SUS_PATH=y" >> "$CONFIG_FILE"
@@ -149,9 +147,60 @@ jobs:
           echo "CONFIG_KSU_SUSFS_SPOOF_CMDLINE_OR_BOOTCONFIG=y" >> "$CONFIG_FILE"
           echo "CONFIG_KSU_SUSFS_OPEN_REDIRECT=y" >> "$CONFIG_FILE"
 
-          # ThinLTO config
-          echo "CONFIG_THINLTO=y" >> "$CONFIG_FILE"
+          # TMPFS configurations
+          echo "CONFIG_TMPFS_XATTR=y" >> "$CONFIG_FILE"
+          echo "CONFIG_TMPFS_POSIX_ACL=y" >> "$CONFIG_FILE"
 
+          # BBR configurations
+          echo "CONFIG_TCP_CONG_ADVANCED=y" >> "$CONFIG_FILE"
+          echo "CONFIG_TCP_CONG_BBR=y" >> "$CONFIG_FILE"
+          echo "CONFIG_NET_SCH_FQ=y" >> "$CONFIG_FILE"
+          echo "CONFIG_TCP_CONG_BIC=n" >> "$CONFIG_FILE"
+          echo "CONFIG_TCP_CONG_WESTWOOD=n" >> "$CONFIG_FILE"
+          echo "CONFIG_TCP_CONG_HTCP=n" >> "$CONFIG_FILE"
+
+          # ECN configurations
+          echo "CONFIG_IP_ECN=y" >> "$CONFIG_FILE"
+          echo "CONFIG_TCP_ECN=y" >> "$CONFIG_FILE"
+          echo "CONFIG_IPV6_ECN=y" >> "$CONFIG_FILE"
+          echo "CONFIG_IP_NF_TARGET_ECN=y" >> "$CONFIG_FILE"
+          echo "CONFIG_NET_SCH_FQ=y" >> "$CONFIG_FILE"
+          echo "CONFIG_NET_SCH_FQ_CODEL=y" >> "$CONFIG_FILE"
+          sed -i -e '/CONFIG_NET_SCH_FQ_CODEL=/d' -e '$aCONFIG_NET_SCH_FQ_CODEL=y' ./common/arch/arm64/configs/gki_defconfig          
+
+      - name: Additional Configurations
+        run: |
+          cd kernel_workspace/kernel_platform
+          CONFIG_FILE="./common/arch/arm64/configs/gki_defconfig"
+          echo "CONFIG_DEBUG_KERNEL=n" >> "$CONFIG_FILE"
+          echo "CONFIG_DYNAMIC_DEBUG=n" >> "$CONFIG_FILE"
+          echo "CONFIG_DEBUG_INFO=n" >> "$CONFIG_FILE"
+          echo "CONFIG_MQ_IOSCHED_SSG=y" >> "$CONFIG_FILE"
+          echo "CONFIG_MQ_IOSCHED_SSG_CGROUP=y" >> "$CONFIG_FILE"
+          sed -i '/CONFIG_LTO_NONE/d' "$CONFIG_FILE"
+          sed -i '/CONFIG_LTO_CLANG_FULL/d' "$CONFIG_FILE"
+          sed -i '/CONFIG_LTO_CLANG_THIN/d' "$CONFIG_FILE"
+          sed -i '/CONFIG_LTO_CLANG/d' "$CONFIG_FILE"
+          echo "CONFIG_LTO_CLANG=y" >> "$CONFIG_FILE"
+          echo "CONFIG_LTO_CLANG_THIN=y" >> "$CONFIG_FILE"
+          echo "CONFIG_CC_OPTIMIZE_FOR_PERFORMANCE=y" >> "$CONFIG_FILE"
+
+      - name: Disable OnePlus Kernel Module
+        run: |
+          cd kernel_workspace/kernel_platform
+          CONFIG_FILE="./common/arch/arm64/configs/gki_defconfig"
+          sed -i 's/CONFIG_REGMAP_KUNIT=m/CONFIG_REGMAP_KUNIT=n/g' "$CONFIG_FILE"
+          sed -i 's/CONFIG_INPUT_KUNIT_TEST=m/CONFIG_INPUT_KUNIT_TEST=n/g' "$CONFIG_FILE"
+          sed -i 's/CONFIG_SND_SOC_TOPOLOGY_KUNIT_TEST=m/CONFIG_SND_SOC_TOPOLOGY_KUNIT_TEST=n/g' "$CONFIG_FILE"
+          sed -i 's/CONFIG_SND_SOC_UTILS_KUNIT_TEST=m/CONFIG_SND_SOC_UTILS_KUNIT_TEST=n/g' "$CONFIG_FILE"
+          sed -i 's/CONFIG_HID_KUNIT_TEST=m/CONFIG_HID_KUNIT_TEST=n/g' "$CONFIG_FILE"
+          sed -i 's/CONFIG_RTC_LIB_KUNIT_TEST=m/CONFIG_RTC_LIB_KUNIT_TEST=n/g' "$CONFIG_FILE"
+          sed -i 's/CONFIG_CLK_KUNIT_TEST=m/CONFIG_CLK_KUNIT_TEST=n/g' "$CONFIG_FILE"
+          sed -i 's/CONFIG_CLK_GATE_KUNIT_TEST=m/CONFIG_CLK_GATE_KUNIT_TEST=n/g' "$CONFIG_FILE"
+          sed -i 's/CONFIG_IIO_FORMAT_KUNIT_TEST=m/CONFIG_IIO_FORMAT_KUNIT_TEST=n/g' "$CONFIG_FILE"
+          sed -i 's/CONFIG_EXT4_KUNIT_TESTS=m/CONFIG_EXT4_KUNIT_TESTS=n/g' "$CONFIG_FILE"
+          sed -i 's/CONFIG_FAT_KUNIT_TEST=m/CONFIG_FAT_KUNIT_TEST=n/g' "$CONFIG_FILE"
+         
           # Remove check_defconfig
           sed -i 's/check_defconfig//' ./common/build.config.gki
 
@@ -164,6 +213,8 @@ jobs:
       - name: Build Kernel
         run: |
           cd kernel_workspace
+          export LTO=thin
+          export KCFLAGS="-O2 -flto=thin"
           ./kernel_platform/build_with_bazel.py -t ${{ env.CPUD }} ${{ env.BUILD_METHOD }}
 
       - name: Create AnyKernel3
@@ -211,14 +262,13 @@ jobs:
       - name: Apply patch_linux and Replace Kernel
         run: |
           cd kernel_workspace/kernel_platform/out/msm-kernel-${{ env.CPUD }}-gki/dist
-          curl -LO https://github.com/ShirkNeko/SukiSU_KernelPatch_patch/releases/download/0.11-beta/patch_linux
+          curl -LO --retry 5 --retry-delay 2 --retry-connrefused https://raw.githubusercontent.com/Numbersf/Action-Build/SukiSU-Ultra/patches/patch_linux
           chmod +x patch_linux
           ./patch_linux
           rm -f Image
           mv oImage Image
           cp Image $GITHUB_WORKSPACE/AnyKernel3/Image
-          cp Image $GITHUB_WORKSPACE/kernel_workspace/init_boot_Image.img
-
+          
       - name: Package AnyKernel3 (ZIP)
         run: |
           cd $GITHUB_WORKSPACE/AnyKernel3
