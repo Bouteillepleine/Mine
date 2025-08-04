@@ -308,8 +308,14 @@ jobs:
       - name: Add Build Name
         working-directory: ${{ env.WORKSPACE_DIR }}/kernel_platform
         run: |
+          set -euo pipefail
           sed -i "/stable_scmversion_cmd/s/-maybe-dirty//g" ./build/kernel/kleaf/impl/stamp.bzl
-          sed -i 's| Zs|echo "\$res"|echo "'"$(echo "${{ env.KERNEL_NAME }}" | sed 's/[\&/]/\\&/g')"'"|g' ./common/scripts/setlocalversion
+          # Escape special characters in KERNEL_NAME
+          ESCAPED_KERNEL_NAME=$(echo "${{ env.KERNEL_NAME }}" | sed 's/[\&/]/\\&/g')
+          sed -i "s|echo \"\\\$res\"|echo \"$ESCAPED_KERNEL_NAME\"|g" ./common/scripts/setlocalversion
+          # Verify the change
+          echo "Verifying setlocalversion modification:"
+          grep "echo \"$ESCAPED_KERNEL_NAME\"" ./common/scripts/setlocalversion || echo "Modification not found, check setlocalversion script"
 
       - name: Configure Bazel for ThinLTO
         if: github.event.inputs.FAST_BUILD != 'true'
