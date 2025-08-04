@@ -7,6 +7,11 @@ on:
         description: "Branch Name (cannot be empty)/Custom Version Identifier (leave empty to not modify)"
         required: false
         default: "susfs-main/⚡Ultra⚡"
+      FAST_BUILD:
+        type: boolean
+        description: "Enable fast kernel build with Clang (if supported)"
+        required: false
+        default: true
   schedule:
     - cron: '0 16 * * *'
 env:
@@ -65,7 +70,7 @@ jobs:
       - name: Install Dependencies and ccache
         run: |
           sudo apt-get update -o Acquire::http::Timeout=30 -o Acquire::Retries=3
-          sudo apt-get install -y --no-install-recommends python3 git curl ccache build-essential bc libncurses-dev bison flex libssl-dev
+          sudo apt-get install -y --no-install-recommends python3 git curl ccache build-essential bc libncurses-dev bison flex libssl-dev libelf-dev
           ccache -M ${{ env.CCACHE_SIZE }}
           ccache -z
 
@@ -77,6 +82,7 @@ jobs:
           echo "Android Version: ${{ env.ANDROID_VERSION }}"
           echo "Kernel Version: ${{ env.KERNEL_VERSION }}"
           echo "Build Method: ${{ env.BUILD_METHOD }}"
+          echo "Selected FAST_BUILD: ${{ github.event.inputs.FAST_BUILD }}"
           echo "ccache stats:"
           ccache -s
 
@@ -281,13 +287,55 @@ jobs:
           sed -i 's|echo "\$res"|echo "'"$(echo "${{ env.KERNEL_NAME }}" | sed 's/[\&/]/\\&/g')"'"|g' ./common/scripts/setlocalversion
 
       - name: Configure Bazel for ThinLTO
+        if: github.event.inputs.FAST_BUILD != 'true'
         run: |
           cd kernel_workspace/kernel_platform
           BUILD_CONFIG="./common/build.config.gki"
           echo "BAZEL_LTO=--lto=thin" >> "$BUILD_CONFIG"
           echo "KBUILD_EXTRA_CFLAGS=-flto=thin" >> "$BUILD_CONFIG"
 
+      - name: Build Kernel FAST
+        if: github.event.inputs.FAST_BUILD == 'true'
+        id: fast_build
+        run: |
+          KERNEL_VERSION="${{ env.KERNEL_VERSION }}"
+          if [[ "$KERNEL_VERSION" == "6.6" ]]; then
+            CLANG_PATH="clang-r510928"
+            CLANG_DIR="prebuilts"
+          elif [[ "$KERNEL_VERSION" == "6.1" ]]; then
+            CLANG_PATH="clang-r510928"
+            CLANG_DIR="prebuilts"
+          elif [[ "$KERNEL_VERSION" == "5.15" ]]; then
+            CLANG_PATH="clang-r450784e"
+            CLANG_DIR="prebuilts"
+          elif [[ "$KERNEL_VERSION" == "5.10" ]]; then
+            CLANG_PATH="clang-r416183b"
+            CLANG_DIR="prebuilts-master"
+            USE_LLVM_IAS=true
+          else
+            echo "fallback=true" >> "$GITHUB_OUTPUT"
+            echo "⚠️ The current kernel version \"$KERNEL_VERSION\" does not have a corresponding clang toolchain, falling back to using the official build script"
+            echo "Please consider disabling FAST_BUILD or adding the clang path for this version"
+            exit 0
+          fi
+          export PATH="$GITHUB_WORKSPACE/kernel_workspace/kernel_platform/$CLANG_DIR/clang/host/linux-x86/$CLANG_PATH/bin:$PATH"
+          export PATH="/usr/lib/ccache:$PATH"
+          export CC="ccache clang"
+          cd kernel_workspace/kernel_platform/common
+          MAKE_ARGS="LLVM=1 ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- \
+            RUSTC=../../prebuilts/rust/linux-x86/1.73.0b/bin/rustc \
+            PAHOLE=../../prebuilts/kernel-build-tools/linux-x86/bin/pahole \
+            LD=ld.lld HOSTLD=ld.lld KCFLAGS+=-Wno-error"
+          if [[ "$USE_LLVM_IAS" == "true" ]]; then
+            MAKE_ARGS="LLVM_IAS=1 $MAKE_ARGS"
+          fi
+          make -j$(nproc --all) O=out $MAKE_ARGS gki_defconfig
+          make -j$(nproc --all) O=out $MAKE_ARGS
+          ccache -s
+          echo "✅ Fast kernel compilation completed with ThinLTO"
+
       - name: Build Kernel
+        if: github.event.inputs.FAST_BUILD != 'true' || steps.fast_build.outputs.fallback == 'true'
         run: |
           cd kernel_workspace
           export LTO=thin
