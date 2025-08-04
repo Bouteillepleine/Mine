@@ -482,7 +482,7 @@ jobs:
       - name: Package AnyKernel3 (ZIP)
         run: |
           cd $GITHUB_WORKSPACE/AnyKernel3
-          zip -r ../AnyKernel3_KernelSU_${{ env.KSUVER }}_${{ env.FEIL }}.zip ./*
+          zip -r ../AK3_Suki_${{ env.KSUVER }}_${{ env.FEIL }}.zip ./*
           cd ..
 
       - name: Set Suffix
