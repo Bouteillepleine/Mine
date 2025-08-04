@@ -11,9 +11,7 @@ on:
         type: boolean
         description: "Enable fast kernel build with Clang (if supported)"
         required: false
-        default: true
-  schedule:
-    - cron: '0 16 * * *'
+        default: true  
 env:
   CPU: 'sm8650'
   FEIL: 'oneplus_13r'
