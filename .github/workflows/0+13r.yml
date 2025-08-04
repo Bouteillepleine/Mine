@@ -268,6 +268,7 @@ jobs:
           rm -f Image
           mv oImage Image
           cp Image $GITHUB_WORKSPACE/AnyKernel3/Image
+          cp Image $GITHUB_WORKSPACE/kernel_workspace/init_boot_Image.img
           
       - name: Package AnyKernel3 (ZIP)
         run: |
