@@ -70,7 +70,7 @@ jobs:
       - name: Install Dependencies and ccache
         run: |
           sudo apt-get update -o Acquire::http::Timeout=30 -o Acquire::Retries=3
-          sudo apt-get install -y --no-install-recommends python3 git curl ccache build-essential bc libncurses-dev bison flex libssl-dev libelf-dev
+          sudo apt-get install -y --no-install-recommends python3 git curl ccache build-essential bc libncurses-dev bison flex libssl-dev libelf-dev lld
           ccache -M ${{ env.CCACHE_SIZE }}
           ccache -z
 
@@ -303,7 +303,7 @@ jobs:
             CLANG_PATH="clang-r510928"
             CLANG_DIR="prebuilts"
           elif [[ "$KERNEL_VERSION" == "6.1" ]]; then
-            CLANG_PATH="clang-r510928"
+            CLANG_PATH="clang-r487747c"
             CLANG_DIR="prebuilts"
           elif [[ "$KERNEL_VERSION" == "5.15" ]]; then
             CLANG_PATH="clang-r450784e"
@@ -315,12 +315,18 @@ jobs:
           else
             echo "fallback=true" >> "$GITHUB_OUTPUT"
             echo "⚠️ The current kernel version \"$KERNEL_VERSION\" does not have a corresponding clang toolchain, falling back to using the official build script"
-            echo "Please consider disabling FAST_BUILD or adding the clang path for this version"
             exit 0
           fi
           export PATH="$GITHUB_WORKSPACE/kernel_workspace/kernel_platform/$CLANG_DIR/clang/host/linux-x86/$CLANG_PATH/bin:$PATH"
           export PATH="/usr/lib/ccache:$PATH"
           export CC="ccache clang"
+          # Verify ld.lld is available
+          if ! command -v ld.lld >/dev/null 2>&1; then
+            echo "⚠️ ld.lld not found. Ensure the lld package is installed and the Clang toolchain includes ld.lld."
+            echo "Falling back to Bazel build."
+            echo "fallback=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
           cd kernel_workspace/kernel_platform/common
           MAKE_ARGS="LLVM=1 ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- \
             RUSTC=../../prebuilts/rust/linux-x86/1.73.0b/bin/rustc \
