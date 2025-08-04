@@ -6,10 +6,8 @@ on:
         type: string
         description: "Branch Name (cannot be empty)/Custom Version Identifier (leave empty to not modify)"
         required: false
-        default: "susfs-main/⚡Ultra⚡"
-  
-  schedule:
-    - cron: '0 16 * * *' 
+        default: "susfs-main/⚡Ultra⚡"  
+ 
 env:
   CPU: 'sm8650'
   FEIL: 'oneplus_13r'
