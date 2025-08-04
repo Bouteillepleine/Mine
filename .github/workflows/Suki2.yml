@@ -40,7 +40,13 @@ jobs:
           # Remove temporary files and directories in /mnt
           sudo find /mnt -type f -name '*.tmp' -delete
           sudo find /mnt -type d -name 'tmp*' -exec rm -rf {} +
-          sudo rm -rf /mnt/tmp-pv.img /mnt/swapfile
+          # Deactivate swap file if active
+          if [ -f /mnt/swapfile ]; then
+            echo "Deactivating swap file /mnt/swapfile"
+            sudo swapoff /mnt/swapfile || true
+            sudo rm -f /mnt/swapfile || true
+          fi
+          sudo rm -f /mnt/tmp-pv.img || true
           echo "Checking /mnt usage after cleanup:"
           df -h /mnt
 
