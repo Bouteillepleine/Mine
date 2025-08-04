@@ -48,9 +48,18 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ${{ env.CCACHE_DIR }}
-          key: ccache-${{ github.job }}-${{ github.sha }}
+          key: ccache-${{ github.job }}-kernel-${{ env.KERNEL_VERSION }}-${{ github.sha }}
           restore-keys: |
-            ccache-${{ github.job }}-
+            ccache-${{ github.job }}-kernel-${{ env.KERNEL_VERSION }}-
+        continue-on-error: true
+
+      - name: Cache Repo Tool
+        uses: actions/cache@v4
+        with:
+          path: /usr/local/bin/repo
+          key: repo-tool-${{ hashFiles('**/build.yml') }}
+          restore-keys: |
+            repo-tool-
         continue-on-error: true
 
       - name: Install Dependencies and ccache
@@ -72,14 +81,24 @@ jobs:
           ccache -s
 
       - name: Install Repo Tool
+        if: steps.cache-repo-tool.outputs.cache-hit != 'true'
         run: |
           curl https://storage.googleapis.com/git-repo-downloads/repo > ~/repo
           chmod a+x ~/repo
           sudo mv ~/repo /usr/local/bin/repo
 
+      - name: Cache Kernel Source
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.WORKSPACE_DIR }}
+          key: kernel-source-${{ env.CPU }}-${{ env.FEIL }}-${{ github.sha }}
+          restore-keys: |
+            kernel-source-${{ env.CPU }}-${{ env.FEIL }}-
+        continue-on-error: true
+
       - name: Initialize Repo and Sync Source Code
         run: |
-          mkdir kernel_workspace && cd kernel_workspace
+          mkdir -p kernel_workspace && cd kernel_workspace
           repo init -u https://github.com/OnePlusOSS/kernel_manifest.git -b refs/heads/oneplus/${{ env.CPU }} -m ${{ env.FEIL }}.xml --depth=1
           repo sync -j$(nproc) --force-sync
           if [ -e kernel_platform/common/BUILD.bazel ]; then
