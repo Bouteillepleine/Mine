@@ -221,8 +221,10 @@ jobs:
         run: |
           cd kernel_workspace
           export LTO=thin
-          export KCFLAGS="-O2 -flto=thin"
-          ./kernel_platform/build_with_bazel.py -t ${{ env.CPUD }} ${{ env.BUILD_METHOD }}
+          export KCFLAGS="-O2 -flto=thin -fno-merge-all-constants"
+          export KBUILD_CFLAGS="-flto=thin"
+          export BAZEL_LTO=--lto=thin
+          ./kernel_platform/build_with_bazel.py -t ${{ env.CPUD }} ${{ env.BUILD_METHOD }} --lto=thin
 
       - name: Create AnyKernel3
         run: |
