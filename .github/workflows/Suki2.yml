@@ -1,4 +1,5 @@
 name: OnePlus 13Rv2
+
 on:
   workflow_dispatch:
     inputs:
@@ -12,6 +13,7 @@ on:
         description: "Enable fast kernel build with Clang (if supported)"
         required: false
         default: true  
+
 env:
   CPU: 'sm8650'
   FEIL: 'oneplus_13r'
@@ -23,7 +25,7 @@ env:
   WORKSPACE_DIR: 'kernel_workspace'
   KERNEL_NAME: '-android14-11-o-g8156f574866f'
   CCACHE_DIR: '/home/runner/.ccache'
-  CCACHE_SIZE: '20G'
+  CCACHE_SIZE: '10G' # Reduced from 20G to prevent disk overflow
 
 jobs:
   build:
@@ -31,47 +33,39 @@ jobs:
     outputs:
       ksuver: ${{ steps.ksuver.outputs.value }}
     steps:
-      - name: Clean Up /mnt Filesystem
+      - name: Clean Up Filesystem
         run: |
-          echo "Checking /mnt usage before cleanup:"
-          df -h /mnt
-          # Remove temporary files and directories in /mnt
+          echo "Checking disk usage before cleanup:"
+          df -h
+          # Clean /mnt, /tmp, and ccache
           sudo find /mnt -type f -name '*.tmp' -delete
           sudo find /mnt -type d -name 'tmp*' -exec rm -rf {} +
-          # Deactivate swap file if active
+          sudo rm -rf /tmp/* /home/runner/.ccache/*
           if [ -f /mnt/swapfile ]; then
             echo "Deactivating swap file /mnt/swapfile"
             sudo swapoff /mnt/swapfile || true
             sudo rm -f /mnt/swapfile || true
           fi
           sudo rm -f /mnt/tmp-pv.img || true
-          echo "Checking /mnt usage after cleanup:"
-          df -h /mnt
-
+          echo "Checking disk usage after cleanup:"
+          df -h
       - name: Ensure Build Directory
         run: |
           sudo mkdir -p /home/runner/work/Mine/Mine
           sudo chown runner:runner /home/runner/work/Mine/Mine
-
       - name: Display Memory and Storage
         run: |
           echo "Memory and swap:"
-          sudo free -h
+          free -h
           echo
-          sudo swapon --show
+          swapon --show
           echo
           echo "Available storage:"
-          sudo df -h
-          echo
-          echo "Build volume usage:"
-          df -h /home/runner/work/Mine/Mine
-          echo
-
+          df -h
       - name: Configure Git Information
         run: |
           git config --global user.name "0+builder"
           git config --global user.email "0+builder@yahoo.com"
-
       - name: Setup ccache
         uses: actions/cache@v4
         with:
@@ -80,23 +74,12 @@ jobs:
           restore-keys: |
             ccache-${{ github.job }}-kernel-${{ env.KERNEL_VERSION }}-
         continue-on-error: true
-
-      - name: Cache Repo Tool
-        uses: actions/cache@v4
-        with:
-          path: /usr/local/bin/repo
-          key: repo-tool-${{ hashFiles('**/build.yml') }}
-          restore-keys: |
-            repo-tool-
-        continue-on-error: true
-
       - name: Install Dependencies and ccache
         run: |
           sudo apt-get update -o Acquire::http::Timeout=30 -o Acquire::Retries=3
           sudo apt-get install -y --no-install-recommends python3 git curl ccache build-essential bc libncurses-dev bison flex libssl-dev libelf-dev lld
           ccache -M ${{ env.CCACHE_SIZE }}
           ccache -z
-
       - name: Display Selected Input Parameters (Debug)
         run: |
           echo "CPU: ${{ env.CPU }}"
@@ -106,16 +89,13 @@ jobs:
           echo "Kernel Version: ${{ env.KERNEL_VERSION }}"
           echo "Build Method: ${{ env.BUILD_METHOD }}"
           echo "Selected FAST_BUILD: ${{ github.event.inputs.FAST_BUILD }}"
-          echo "ccache stats:"
           ccache -s
-
       - name: Install Repo Tool
         if: steps.cache-repo-tool.outputs.cache-hit != 'true'
         run: |
           curl https://storage.googleapis.com/git-repo-downloads/repo > ~/repo
           chmod a+x ~/repo
           sudo mv ~/repo /usr/local/bin/repo
-
       - name: Cache Kernel Source
         uses: actions/cache@v4
         with:
@@ -124,7 +104,6 @@ jobs:
           restore-keys: |
             kernel-source-${{ env.CPU }}-${{ env.FEIL }}-
         continue-on-error: true
-
       - name: Initialize Repo and Sync Source Code
         run: |
           mkdir -p kernel_workspace && cd kernel_workspace
@@ -138,7 +117,6 @@ jobs:
           fi
           rm kernel_platform/common/android/abi_gki_protected_exports_* || echo "No protected exports!"
           rm kernel_platform/msm-kernel/android/abi_gki_protected_exports_* || echo "No protected exports!"
-
       - name: Force Remove -dirty Suffix
         run: |
           cd kernel_workspace/kernel_platform
@@ -148,7 +126,6 @@ jobs:
           sed -i '$i res=$(echo "$res" | sed '\''s/-dirty//g'\'')' common/scripts/setlocalversion
           git add -A
           git commit -m "Force remove -dirty suffix from kernel version"
-
       - name: Add SukiSU Ultra
         run: |
           cd kernel_workspace/kernel_platform
@@ -190,51 +167,35 @@ jobs:
           ' kernel/Makefile > kernel/Makefile.tmp && mv kernel/Makefile.tmp kernel/Makefile
           KSU_VERSION=$(expr $(git rev-list --count main 2>/dev/null || echo 13000) + 10700)
           echo "KSUVER=$KSU_VERSION" >> $GITHUB_ENV
-          echo "::group::Preview of version information and some debug results in the final Makefile"
-          grep -A10 "REPO_OWNER" kernel/Makefile
-          grep "KSU_VERSION_FULL" kernel/Makefile
-          echo "::endgroup::"
-
       - name: Apply SukiSU Ultra Patch
         run: |
           cd kernel_workspace
-          git clone https://gitlab.com/simonpunk/susfs4ksu.git -b gki-${{ env.ANDROID_VERSION }}-${{ env.KERNEL_VERSION }}
-          git clone https://github.com/ShirkNeko/SukiSU_patch.git
+          git clone --depth=1 https://gitlab.com/simonpunk/susfs4ksu.git -b gki-${{ env.ANDROID_VERSION }}-${{ env.KERNEL_VERSION }}
+          git clone --depth=1 https://github.com/ShirkNeko/SukiSU_patch.git
           cd kernel_platform
-          echo "Applying susfs patch to kernel"
           cp ../susfs4ksu/kernel_patches/50_add_susfs_in_gki-${{ env.ANDROID_VERSION }}-${{ env.KERNEL_VERSION }}.patch ./common/
           cp ../susfs4ksu/kernel_patches/fs/* ./common/fs/
           cp ../susfs4ksu/kernel_patches/include/linux/* ./common/include/linux/
           cd ./common
           patch -p1 < 50_add_susfs_in_gki-${{ env.ANDROID_VERSION }}-${{ env.KERNEL_VERSION }}.patch || true
-          echo "Completed"
-
       - name: Apply Hide Patch
         run: |
           cd kernel_workspace/kernel_platform/common
           cp ../../SukiSU_patch/69_hide_stuff.patch ./
-          echo "Applying hide application patch"
           patch -p1 -F 3 < 69_hide_stuff.patch
-
       - name: Apply VFS Patch
         run: |
           cd kernel_workspace/kernel_platform/common
           cp ../../SukiSU_patch/hooks/syscall_hooks.patch ./
-          echo "Applying VFS patch"
           patch -p1 -F 3 < syscall_hooks.patch
-          echo "VFS patch completed"
-
       - name: Add Configuration Information
         run: |
           cd kernel_workspace/kernel_platform
           CONFIG_FILE=./common/arch/arm64/configs/gki_defconfig
-          KERNEL_VERSION="${{ env.KERNEL_VERSION }}"
-          # SukiSU Ultra config
           echo "CONFIG_KSU_SUSFS_SUS_SU=n" >> "$CONFIG_FILE"
           echo "CONFIG_KSU_MANUAL_HOOK=y" >> "$CONFIG_FILE"
           echo "CONFIG_KSU=y" >> "$CONFIG_FILE"
           echo "CONFIG_KPM=y" >> "$CONFIG_FILE"
-          # SUSFS configuration
           echo "CONFIG_KSU_SUSFS=y" >> "$CONFIG_FILE"
           echo "CONFIG_KSU_SUSFS_HAS_MAGIC_MOUNT=y" >> "$CONFIG_FILE"
           echo "CONFIG_KSU_SUSFS_SUS_PATH=y" >> "$CONFIG_FILE"
@@ -250,44 +211,29 @@ jobs:
           echo "CONFIG_KSU_SUSFS_HIDE_KSU_SUSFS_SYMBOLS=y" >> "$CONFIG_FILE"
           echo "CONFIG_KSU_SUSFS_SPOOF_CMDLINE_OR_BOOTCONFIG=y" >> "$CONFIG_FILE"
           echo "CONFIG_KSU_SUSFS_OPEN_REDIRECT=y" >> "$CONFIG_FILE"
-          # TMPFS configurations
           echo "CONFIG_TMPFS_XATTR=y" >> "$CONFIG_FILE"
           echo "CONFIG_TMPFS_POSIX_ACL=y" >> "$CONFIG_FILE"
-          # BBR configurations
           echo "CONFIG_TCP_CONG_ADVANCED=y" >> "$CONFIG_FILE"
           echo "CONFIG_TCP_CONG_BBR=y" >> "$CONFIG_FILE"
           echo "CONFIG_NET_SCH_FQ=y" >> "$CONFIG_FILE"
           echo "CONFIG_TCP_CONG_BIC=n" >> "$CONFIG_FILE"
           echo "CONFIG_TCP_CONG_WESTWOOD=n" >> "$CONFIG_FILE"
           echo "CONFIG_TCP_CONG_HTCP=n" >> "$CONFIG_FILE"
-          # ECN configurations
           echo "CONFIG_IP_ECN=y" >> "$CONFIG_FILE"
           echo "CONFIG_TCP_ECN=y" >> "$CONFIG_FILE"
           echo "CONFIG_IPV6_ECN=y" >> "$CONFIG_FILE"
           echo "CONFIG_IP_NF_TARGET_ECN=y" >> "$CONFIG_FILE"
-          echo "CONFIG_NET_SCH_FQ=y" >> "$CONFIG_FILE"
           echo "CONFIG_NET_SCH_FQ_CODEL=y" >> "$CONFIG_FILE"
-          sed -i -e '/CONFIG_NET_SCH_FQ_CODEL=/d' -e '$aCONFIG_NET_SCH_FQ_CODEL=y' ./common/arch/arm64/configs/gki_defconfig
-
+          sed -i -e '/CONFIG_NET_SCH_FQ_CODEL=/d' -e '$aCONFIG_NET_SCH_FQ_CODEL=y' "$CONFIG_FILE"
       - name: Others configurations
-        shell: bash
         run: |
-          echo "Changing to configuration directory: kernel_workspace/kernel_platform"
           cd kernel_workspace/kernel_platform
-      
           CONFIG_FILE="./common/arch/arm64/configs/gki_defconfig"
-          echo "Configuring $CONFIG_FILE..."
-      
-          # Disable debugging options
           echo "CONFIG_DEBUG_KERNEL=n" >> "$CONFIG_FILE"
           echo "CONFIG_DYNAMIC_DEBUG=n" >> "$CONFIG_FILE"
           echo "CONFIG_DEBUG_INFO=n" >> "$CONFIG_FILE"
-      
-          # Enable SSG I/O scheduler 
           echo "CONFIG_MQ_IOSCHED_SSG=y" >> "$CONFIG_FILE"
           echo "CONFIG_MQ_IOSCHED_SSG_CGROUP=y" >> "$CONFIG_FILE"
-      
-          # Configure LTO and optimizations
           sed -i '/CONFIG_LTO_NONE/d' "$CONFIG_FILE"
           sed -i '/CONFIG_LTO_CLANG_FULL/d' "$CONFIG_FILE"
           sed -i '/CONFIG_LTO_CLANG_THIN/d' "$CONFIG_FILE"
@@ -296,12 +242,8 @@ jobs:
           echo "CONFIG_LTO_CLANG_THIN=y" >> "$CONFIG_FILE"
           echo "CONFIG_CC_OPTIMIZE_FOR_PERFORMANCE=y" >> "$CONFIG_FILE"
           echo "CONFIG_LD_DEAD_CODE_DATA_ELIMINATION=y" >> "$CONFIG_FILE"
-      
-          # Conditionally enable AutoFDO and Polly (only if profiling data is available)
-          echo "CONFIG_AUTOFDO_CLANG=y" >> "$CONFIG_FILE"          
-          # Polly is disabled by default to reduce build time; enable only if profiling shows benefits
+          echo "CONFIG_AUTOFDO_CLANG=y" >> "$CONFIG_FILE"
           echo "CONFIG_LLVM_POLLY=y" >> "$CONFIG_FILE"
-
       - name: Disable OnePlus Kernel Module
         run: |
           cd kernel_workspace/kernel_platform
@@ -318,19 +260,13 @@ jobs:
           sed -i 's/CONFIG_EXT4_KUNIT_TESTS=m/CONFIG_EXT4_KUNIT_TESTS=n/g' "$CONFIG_FILE"
           sed -i 's/CONFIG_FAT_KUNIT_TEST=m/CONFIG_FAT_KUNIT_TEST=n/g' "$CONFIG_FILE"
           sed -i 's/check_defconfig//' ./common/build.config.gki
-
       - name: Add Build Name
         working-directory: ${{ env.WORKSPACE_DIR }}/kernel_platform
         run: |
           set -euo pipefail
           sed -i "/stable_scmversion_cmd/s/-maybe-dirty//g" ./build/kernel/kleaf/impl/stamp.bzl
-          # Escape special characters in KERNEL_NAME
           ESCAPED_KERNEL_NAME=$(echo "${{ env.KERNEL_NAME }}" | sed 's/[\&/]/\\&/g')
           sed -i "s|echo \"\\\$res\"|echo \"$ESCAPED_KERNEL_NAME\"|g" ./common/scripts/setlocalversion
-          # Verify the change
-          echo "Verifying setlocalversion modification:"
-          grep "echo \"$ESCAPED_KERNEL_NAME\"" ./common/scripts/setlocalversion || echo "Modification not found, check setlocalversion script"
-
       - name: Configure Bazel for ThinLTO
         if: github.event.inputs.FAST_BUILD != 'true'
         run: |
@@ -338,7 +274,6 @@ jobs:
           BUILD_CONFIG="./common/build.config.gki"
           echo "BAZEL_LTO=--lto=thin" >> "$BUILD_CONFIG"
           echo "KBUILD_EXTRA_CFLAGS=-flto=thin" >> "$BUILD_CONFIG"
-
       - name: Build Kernel FAST
         if: github.event.inputs.FAST_BUILD == 'true'
         id: fast_build
@@ -359,25 +294,20 @@ jobs:
             USE_LLVM_IAS=true
           else
             echo "fallback=true" >> "$GITHUB_OUTPUT"
-            echo "⚠️ The current kernel version \"$KERNEL_VERSION\" does not have a corresponding clang toolchain, falling back to using the official build script"
             exit 0
           fi
           export PATH="$GITHUB_WORKSPACE/kernel_workspace/kernel_platform/$CLANG_DIR/clang/host/linux-x86/$CLANG_PATH/bin:$PATH"
           export PATH="/usr/lib/ccache:$PATH"
           export CC="ccache clang"
-          # Verify ld.lld is available
           if ! command -v ld.lld >/dev/null 2>&1; then
-            echo "⚠️ ld.lld not found. Ensure the lld package is installed and the Clang toolchain includes ld.lld."
             echo "Falling back to Bazel build."
             echo "fallback=true" >> "$GITHUB_OUTPUT"
             exit 0
           fi
-          # Verify Clang toolchain directory
           if [ -d "$GITHUB_WORKSPACE/kernel_workspace/kernel_platform/$CLANG_DIR/clang/host/linux-x86/$CLANG_PATH/bin" ]; then
-            echo "Clang toolchain found:"
-            ls -l $GITHUB_WORKSPACE/kernel_workspace/kernel_platform/$CLANG_DIR/clang/host/linux-x86/$CLANG_PATH/bin
+            echo "Clang toolchain found"
           else
-            echo "Clang toolchain directory not found: $GITHUB_WORKSPACE/kernel_workspace/kernel_platform/$CLANG_DIR/clang/host/linux-x86/$CLANG_PATH/bin"
+            echo "Clang toolchain directory not found"
             echo "fallback=true" >> "$GITHUB_OUTPUT"
             exit 0
           fi
@@ -392,8 +322,6 @@ jobs:
           make -j$(nproc --all) O=out $MAKE_ARGS gki_defconfig
           make -j$(nproc --all) O=out $MAKE_ARGS
           ccache -s
-          echo "✅ Fast kernel compilation completed with ThinLTO"
-
       - name: Build Kernel
         if: github.event.inputs.FAST_BUILD != 'true' || steps.fast_build.outputs.fallback == 'true'
         run: |
@@ -406,37 +334,31 @@ jobs:
           export CXX="ccache g++"
           export PATH="/usr/lib/ccache:$PATH"
           ./kernel_platform/build_with_bazel.py -t ${{ env.CPUD }} ${{ env.BUILD_METHOD }} --lto=thin --jobs=$(nproc)
-          echo "ccache stats after build:"
           ccache -s
-
       - name: Make AnyKernel3
         run: |
-          git clone https://github.com/Bouteillepleine/AnyKernel3.git --depth=1
+          git clone --depth=1 https://github.com/Bouteillepleine/AnyKernel3.git
           rm -rf ./AnyKernel3/.git
           mkdir -p kernel_workspace/kernel_platform/out/Final-Image-Find/
-          dir1=""
-          dir2=""
-          image_path=$(find "./kernel_workspace/kernel_platform/common/out/" -name "Image" | head -n 1)
+          image_path=$(find "./kernel_workspace/kernel_platform/common/out/" -name "Image" -o -name "Image.gz" | head -n 1)
           if [ -n "$image_path" ]; then
             dir1=$(dirname "$image_path")/
-            echo "Using the unified path compiled with make, successfully found the Image file"
+            echo "Using make-compiled Image file"
           else
-            image_path=$(find "./kernel_workspace/kernel_platform/out/" -name "Image" | head -n 1)
+            image_path=$(find "./kernel_workspace/kernel_platform/out/" -name "Image" -o -name "Image.gz" | head -n 1)
             if [ -n "$image_path" ]; then
               dir2=$(dirname "$image_path")/
-              echo "Compiled with the official script, successfully found the Image file"
+              echo "Using official script-compiled Image file"
             else
               echo "Image file not found, build failed" >&2
               exit 1
             fi
           fi
           if [ -n "$image_path" ] && [ -f "$image_path" ]; then
-            echo "Image file finally located at: $image_path"
             cp "$image_path" ./AnyKernel3/Image
             cp "$image_path" kernel_workspace/kernel_platform/out/Final-Image-Find/Image
           fi
           if [ -n "$dir2" ] && [ "${{ env.CPU }}" = "sm8750" ] && [ "${{ github.event.inputs.FAST_BUILD }}" = "false" ]; then
-            echo "You are currently building sm8750 with the official script. Additional image files will be copied: dtbo.img, system_dlkm.img, vendor_dlkm.img, vendor_boot.img. Please note: If you switch to fast build after flashing this build, make sure to restore these partitions!"
             for file in dtbo.img system_dlkm.erofs.img vendor_dlkm.img vendor_boot.img; do
               if [ -f "$dir2$file" ]; then
                 target_name="$file"
@@ -444,12 +366,9 @@ jobs:
                   target_name="system_dlkm.img"
                 fi
                 cp "$dir2$file" "./AnyKernel3/$target_name"
-              else
-                echo "$file does not exist, skipping copy"
               fi
             done
           fi
-
       - name: Apply patch_linux and replace Image
         run: |
           cd kernel_workspace/kernel_platform/out/Final-Image-Find
@@ -459,37 +378,29 @@ jobs:
           rm -f Image
           mv oImage Image
           cp Image $GITHUB_WORKSPACE/AnyKernel3/Image
-
       - name: Download Latest SUSFS Module from CI
         continue-on-error: true
         run: |
           LATEST_RUN_ID=$(curl -s -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
             "https://api.github.com/repos/sidex15/susfs4ksu-module/actions/runs?status=success" | \
             jq -r '.workflow_runs[] | select(.head_branch == "v1.5.2+") | .id' | head -n 1)
-          if [ -z "$LATEST_RUN_ID" ]; then
-            echo "No successful run found for branch v1.5.2+"
-          else
+          if [ -n "$LATEST_RUN_ID" ]; then
             ARTIFACT_URL=$(curl -s -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
               "https://api.github.com/repos/sidex15/susfs4ksu-module/actions/runs/$LATEST_RUN_ID/artifacts" | jq -r '.artifacts[0].archive_download_url')
             if [ -n "$ARTIFACT_URL" ]; then
               curl -L -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" -o ksu_module_susfs_1.5.2+_CI.zip "$ARTIFACT_URL"
               cp ksu_module_susfs_1.5.2+_CI.zip ./AnyKernel3/
-            else
-              echo "Failed to fetch artifact URL"
             fi
           fi
-
       - name: Package AnyKernel3 (ZIP)
         run: |
           cd $GITHUB_WORKSPACE/AnyKernel3
           zip -r ../AK3_Suki_${{ env.KSUVER }}_${{ env.FEIL }}.zip ./*
           cd ..
-
       - name: Set Suffix
         id: suffix
         run: |
           echo "value=_KPM_VFS" >> $GITHUB_OUTPUT
-
       - name: Remove _uv Suffix from FEIL
         id: feil_clean
         run: |
@@ -497,7 +408,6 @@ jobs:
           clean_feil="${clean_feil%_v}"
           clean_feil="${clean_feil%_u}"
           echo "value=$clean_feil" >> $GITHUB_OUTPUT
-
       - name: Upload AnyKernel3 ZIP Artifact
         uses: actions/upload-artifact@v4
         with:
@@ -505,8 +415,11 @@ jobs:
           path: |
             *.zip
           retention-days: 3
-
       - name: Record KSU Version
         id: ksuver
         run: |
           echo "value=${KSUVER}" >> $GITHUB_OUTPUT
+      - name: Final Disk Usage Check
+        run: |
+          echo "Final disk usage:"
+          df -h
